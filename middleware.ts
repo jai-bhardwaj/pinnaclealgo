@@ -2,31 +2,42 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Add the paths that should be accessible only to logged-in users
-const protectedPaths = ["/dashboard", "/profile"];
-
-// Add the paths that should be accessible only to logged-out users
-const authPaths = ["/login", "/register"];
-
 export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request });
   const isAuthenticated = !!token;
-  const path = request.nextUrl.pathname;
+  const isAuthPage = request.nextUrl.pathname === "/login";
+  const isHomePage = request.nextUrl.pathname === "/";
 
-  // If the user is logged in and tries to access auth pages (login/register)
-  if (isAuthenticated && authPaths.includes(path)) {
-    return NextResponse.redirect(new URL("/", request.url));
+  // If the user is not authenticated and trying to access a protected route
+  if (!isAuthenticated && !isAuthPage) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // If the user is not logged in and tries to access protected pages
-  if (!isAuthenticated && protectedPaths.includes(path)) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  // If the user is authenticated and trying to access auth pages
+  if (isAuthenticated && isAuthPage) {
+    const settingsUrl = new URL("/settings", request.url);
+    return NextResponse.redirect(settingsUrl);
+  }
+
+  // Redirect root to settings if authenticated
+  if (isAuthenticated && isHomePage) {
+    const settingsUrl = new URL("/settings", request.url);
+    return NextResponse.redirect(settingsUrl);
   }
 
   return NextResponse.next();
 }
 
-// Configure which routes to run middleware on
+// Configure the paths that should be protected
 export const config = {
-  matcher: [...protectedPaths, ...authPaths],
+  matcher: [
+    // Protected routes that need authentication
+    "/",
+    "/orders/:path*",
+    "/pnl/:path*",
+    "/settings/:path*",
+    // Auth routes that should redirect if already authenticated
+    "/login",
+  ],
 };
