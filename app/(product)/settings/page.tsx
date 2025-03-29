@@ -1,13 +1,15 @@
+import { StrategyTable } from "@/app/components/StrategyTable";
+
 export default function SettingsPage() {
   return (
     <>
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="block space-y-2 rounded-lg border p-4">
-          <h2 className="font-semibold">General Settings</h2>
-          <p className="text-sm text-muted-foreground">
-            Configure your application settings
+      <div className="grid gap-6">
+        <div className="block space-y-2">
+          <h2 className="text-xl font-semibold">Strategy Management</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Manage your trading strategies, margins, and status
           </p>
+          <StrategyTable />
         </div>
       </div>
     </>
