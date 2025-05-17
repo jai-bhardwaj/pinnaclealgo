@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Table,
   TableBody,
@@ -18,15 +19,35 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Strategy, generateRandomStrategies } from "@/app/constants/strategies";
 import { Check, X, IndianRupee, Percent, RefreshCcw } from "lucide-react";
+import { backendApi, type Strategy } from "@/lib/backend_api";
 
 export function StrategyTable() {
-  const [strategies, setStrategies] = useState<Strategy[]>(() =>
-    generateRandomStrategies(8)
-  );
+  const { data: session } = useSession();
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [editingMargin, setEditingMargin] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [squareOffLoading, setSquareOffLoading] = useState<string | null>(null);
+  const [squareOffAllLoading, setSquareOffAllLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStrategies = async () => {
+    try {
+      const data = await backendApi.strategies.getAll();
+      setStrategies(data);
+      setError(null);
+    } catch (err) {
+      console.error("Error fetching strategies:", err);
+      setError(err instanceof Error ? err.message : "Failed to load strategies");
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.access_token) {
+      fetchStrategies();
+    }
+  }, [session]);
 
   const formatMargin = (strategy: Strategy) => {
     const formattedValue = new Intl.NumberFormat("en-IN", {
@@ -48,80 +69,123 @@ export function StrategyTable() {
       return `₹${inRupees.toFixed(2)} (${value}% of ₹${strategy.basePrice})`;
     } else {
       const inPercentage = (value * 100) / strategy.basePrice;
-      return `${inPercentage.toFixed(2)}% (₹${value} of ₹${
-        strategy.basePrice
-      })`;
+      return `${inPercentage.toFixed(2)}% (₹${value} of ₹${strategy.basePrice})`;
     }
   };
 
-  const handleMarginChange = (
+  const handleMarginChange = async (
     id: string,
     value: string,
     type: "percentage" | "rupees"
   ) => {
     const numValue = parseFloat(value) || 0;
-    setStrategies((prev) =>
-      prev.map((strategy) =>
-        strategy.id === id
-          ? {
-              ...strategy,
-              margin: numValue,
-              marginType: type,
-              lastUpdated: new Date().toLocaleDateString(),
-            }
-          : strategy
-      )
-    );
+    try {
+      const updatedStrategy = await backendApi.strategies.update(id, {
+        margin: numValue,
+        marginType: type,
+      });
+      
+      setStrategies((prev) =>
+        prev.map((strategy) =>
+          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+        )
+      );
+      setError(null);
+    } catch (err) {
+      console.error("Error updating strategy:", err);
+      setError("Failed to update strategy");
+    }
   };
 
   const handleMarginBlur = () => {
     setEditingMargin(null);
   };
 
-  const toggleMarginType = (id: string) => {
-    setStrategies((prev) =>
-      prev.map((strategy) =>
-        strategy.id === id
-          ? {
-              ...strategy,
-              marginType:
-                strategy.marginType === "percentage" ? "rupees" : "percentage",
-              margin:
-                strategy.marginType === "percentage"
-                  ? parseFloat(
-                      ((strategy.margin * strategy.basePrice) / 100).toFixed(2)
-                    )
-                  : parseFloat(
-                      ((strategy.margin * 100) / strategy.basePrice).toFixed(2)
-                    ),
-              lastUpdated: new Date().toLocaleDateString(),
-            }
-          : strategy
-      )
-    );
+  const toggleMarginType = async (id: string) => {
+    const strategy = strategies.find((s) => s.id === id);
+    if (!strategy) return;
+
+    const newType = strategy.marginType === "percentage" ? "rupees" : "percentage";
+    const newMargin = strategy.marginType === "percentage"
+      ? parseFloat(((strategy.margin * strategy.basePrice) / 100).toFixed(2))
+      : parseFloat(((strategy.margin * 100) / strategy.basePrice).toFixed(2));
+
+    try {
+      const updatedStrategy = await backendApi.strategies.update(id, {
+        margin: newMargin,
+        marginType: newType,
+      });
+      
+      setStrategies((prev) =>
+        prev.map((strategy) =>
+          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+        )
+      );
+      setError(null);
+    } catch (err) {
+      console.error("Error updating strategy:", err);
+      setError("Failed to update strategy");
+    }
   };
 
-  const handleStatusChange = (id: string) => {
-    setStrategies((prev) =>
-      prev.map((strategy) =>
-        strategy.id === id
-          ? {
-              ...strategy,
-              status: strategy.status === "active" ? "inactive" : "active",
-              lastUpdated: new Date().toLocaleDateString(),
-            }
-          : strategy
-      )
-    );
+  const handleStatusChange = async (id: string) => {
+    const strategy = strategies.find((s) => s.id === id);
+    if (!strategy) return;
+
+    const newStatus = strategy.status === "active" ? "inactive" : "active";
+
+    try {
+      const updatedStrategy = await backendApi.strategies.update(id, {
+        status: newStatus,
+      });
+      
+      setStrategies((prev) =>
+        prev.map((strategy) =>
+          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+        )
+      );
+      setError(null);
+    } catch (err) {
+      console.error("Error updating strategy:", err);
+      setError("Failed to update strategy");
+    }
   };
 
   const handleRefreshData = async () => {
     setIsRefreshing(true);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setStrategies(generateRandomStrategies(8));
+    await fetchStrategies();
     setEditingMargin(null);
     setIsRefreshing(false);
+  };
+
+  const handleSquareOffStrategy = async (strategyId: string) => {
+    setSquareOffLoading(strategyId);
+    setMessage(null);
+    try {
+      const res = await backendApi.strategies.squareOff(strategyId);
+      setMessage(res.message || "Square off completed");
+      await fetchStrategies();
+    } catch (err) {
+      console.error("Error during square off:", err);
+      setError("Failed to square off strategy");
+    } finally {
+      setSquareOffLoading(null);
+    }
+  };
+
+  const handleSquareOffAll = async () => {
+    setSquareOffAllLoading(true);
+    setMessage(null);
+    try {
+      const res = await backendApi.strategies.squareOffAll();
+      setMessage(res.message || "Square off all completed");
+      await fetchStrategies();
+    } catch (err) {
+      console.error("Error during square off all:", err);
+      setError("Failed to square off all strategies");
+    } finally {
+      setSquareOffAllLoading(false);
+    }
   };
 
   return (
@@ -136,18 +200,38 @@ export function StrategyTable() {
               Active: {strategies.filter((s) => s.status === "active").length}
             </Badge>
           </div>
-          <Button
-            onClick={handleRefreshData}
-            variant="outline"
-            className="gap-2"
-            disabled={isRefreshing}
-          >
-            <RefreshCcw
-              className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh Data
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSquareOffAll}
+              variant="destructive"
+              className="gap-2"
+              disabled={squareOffAllLoading}
+            >
+              {squareOffAllLoading ? "Squaring Off All..." : "Square Off All"}
+            </Button>
+            <Button
+              onClick={handleRefreshData}
+              variant="outline"
+              className="gap-2"
+              disabled={isRefreshing}
+            >
+              <RefreshCcw
+                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Refresh Data
+            </Button>
+          </div>
         </div>
+        {message && (
+          <div className="my-2 text-center text-sm text-green-700 bg-green-100 rounded p-2">
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="my-2 text-center text-sm text-red-700 bg-red-100 rounded p-2">
+            {error}
+          </div>
+        )}
         <div className="rounded-md border shadow-sm">
           <Table>
             <TableHeader>
@@ -272,8 +356,13 @@ export function StrategyTable() {
                   </TableCell>
                   <TableCell>{strategy.lastUpdated}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      Save
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSquareOffStrategy(strategy.id)}
+                      disabled={squareOffLoading === strategy.id}
+                    >
+                      {squareOffLoading === strategy.id ? "Squaring Off..." : "Square Off"}
                     </Button>
                   </TableCell>
                 </TableRow>

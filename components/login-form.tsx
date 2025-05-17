@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,8 +18,7 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -32,22 +30,24 @@ export function LoginForm({
 
     try {
       const result = await signIn("credentials", {
-        email,
+        username: usernameOrEmail,
         password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError(result.error || "Login failed. Please try again.");
+        setError(result.error);
         return;
       }
 
-      // Successful login
-      router.push("/settings");
-      router.refresh();
+      if (result?.ok) {
+        window.location.href = "/product/settings";
+      } else {
+        setError("Login failed. Please try again.");
+      }
     } catch (err) {
-      setError("An error occurred. Please try again.");
-      console.log("Error: ", err);
+      console.error("Login error:", err);
+      setError(err instanceof Error ? err.message : "Invalid username/email or password");
     } finally {
       setIsLoading(false);
     }
@@ -59,21 +59,21 @@ export function LoginForm({
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter your username or email below to login to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-3">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username or Email</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username or email"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={usernameOrEmail}
+                  onChange={(e) => setUsernameOrEmail(e.target.value)}
                 />
               </div>
               <div className="grid gap-3">
@@ -99,17 +99,8 @@ export function LoginForm({
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Logging in..." : "Login"}
                 </Button>
-                {/* <Button variant="outline" className="w-full">
-                  Login with Google
-                </Button> */}
               </div>
             </div>
-            {/* <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <a href="#" className="underline underline-offset-4">
-                Sign up
-              </a>
-            </div> */}
           </form>
         </CardContent>
       </Card>

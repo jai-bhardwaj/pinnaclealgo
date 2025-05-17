@@ -1,62 +1,122 @@
-import bcrypt from "bcryptjs";
-import { connectDB } from "@/lib/mongodb";
-import User from "@/models/User";
 import type { NextAuthOptions } from "next-auth";
-import credentials from "next-auth/providers/credentials";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { backendApi } from "./backend_api";
+
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: User;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email: string;
+    name: string;
+    access_token: string;
+  }
+}
+
+// Extend the built-in User type
+declare module "next-auth" {
+  interface User {
+    id: string;
+    email: string;
+    name: string;
+    access_token: string;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    credentials({
+    CredentialsProvider({
       name: "Credentials",
-      id: "credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        await connectDB();
-
-        if (!credentials?.email || !credentials.password) {
-          throw new Error("Email and password are required");
+        if (!credentials?.username || !credentials?.password) {
+          throw new Error("Missing credentials");
         }
 
-        const user = await User.findOne({ email: credentials.email });
+        try {
+          // Get the access token
+          const authResponse = await backendApi.auth.login(
+            credentials.username,
+            credentials.password
+          );
 
-        if (!user) {
-          throw new Error("No user found with this email");
+          if (!authResponse.access_token) {
+            throw new Error("No access token received");
+          }
+
+          // Return the user object with the access token
+          return {
+            id: credentials.username,
+            email: credentials.username,
+            name: credentials.username,
+            access_token: authResponse.access_token,
+          };
+        } catch (error) {
+          console.error("Auth error:", error);
+          throw error;
         }
-
-        const passwordMatch = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!passwordMatch) throw new Error("Wrong Password");
-
-        // Return user without password
-        return {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-        };
       },
     }),
   ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        // Initial sign in
+        return {
+          ...token,
+          access_token: user.access_token,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Send properties to the client
+      session.user = {
+        ...session.user,
+        access_token: token.access_token,
+        id: token.id,
+        email: token.email,
+        name: token.name,
+      };
+      return session;
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
+  },
   pages: {
     signIn: "/login",
     signOut: "/auth/signout",
     error: "/auth/error",
   },
-  callbacks: {
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
-    },
-  },
   session: {
     strategy: "jwt",
+    maxAge: 24 * 60 * 60, // 24 hours
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
 };
