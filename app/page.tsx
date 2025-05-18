@@ -1,10 +1,19 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Home() {
-  // For protected pages, pass true
-  useAuth(true);
+  const router = useRouter();
 
-  return null; // This content won't be shown as we'll redirect to /settings
+  // Redirect to settings on home page
+  useEffect(() => {
+    router.push('/settings');
+  }, [router]);
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-lg">Redirecting to dashboard...</div>
+    </div>
+  );
 }

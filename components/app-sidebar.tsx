@@ -18,17 +18,17 @@ import {
 const navItems = [
   {
     title: "Orders",
-    url: "/product/orders",
+    url: "/orders",
     icon: ShoppingCart,
   },
   {
     title: "PnL",
-    url: "/product/pnl",
+    url: "/pnl",
     icon: LineChart,
   },
   {
     title: "Settings",
-    url: "/product/settings",
+    url: "/settings",
     icon: Settings2,
   },
 ];

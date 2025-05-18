@@ -19,8 +19,32 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Check, X, IndianRupee, Percent, RefreshCcw } from "lucide-react";
+import { Check, X, IndianRupee, Percent, RefreshCcw, AlertCircle } from "lucide-react";
 import { backendApi, type Strategy } from "@/lib/backend_api";
+
+// Mock data in case the server is unreachable
+const MOCK_STRATEGIES: Strategy[] = [
+  {
+    id: "mock-1",
+    name: "NIFTY Swing Strategy (Demo)",
+    margin: 5,
+    marginType: "percentage",
+    basePrice: 24000,
+    status: "inactive",
+    lastUpdated: new Date().toLocaleDateString(),
+    user_id: "mock-user"
+  },
+  {
+    id: "mock-2",
+    name: "Option Scalping Strategy (Demo)",
+    margin: 2500,
+    marginType: "rupees",
+    basePrice: 50000,
+    status: "inactive",
+    lastUpdated: new Date().toLocaleDateString(),
+    user_id: "mock-user"
+  },
+];
 
 export function StrategyTable() {
   const { data: session } = useSession();
@@ -31,15 +55,23 @@ export function StrategyTable() {
   const [squareOffAllLoading, setSquareOffAllLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
 
   const fetchStrategies = async () => {
     try {
+      setIsRefreshing(true);
       const data = await backendApi.strategies.getAll();
       setStrategies(data);
       setError(null);
+      setUseMockData(false);
     } catch (err) {
       console.error("Error fetching strategies:", err);
       setError(err instanceof Error ? err.message : "Failed to load strategies");
+
+      // After API fails, allow using mock data
+      setUseMockData(true);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -48,6 +80,13 @@ export function StrategyTable() {
       fetchStrategies();
     }
   }, [session]);
+
+  const useMockDataNow = () => {
+    setStrategies(MOCK_STRATEGIES);
+    setError(null);
+    setMessage("Using demo data. Backend connection is not available.");
+    setUseMockData(false);
+  };
 
   const formatMargin = (strategy: Strategy) => {
     const formattedValue = new Intl.NumberFormat("en-IN", {
@@ -84,7 +123,7 @@ export function StrategyTable() {
         margin: numValue,
         marginType: type,
       });
-      
+
       setStrategies((prev) =>
         prev.map((strategy) =>
           strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
@@ -115,7 +154,7 @@ export function StrategyTable() {
         margin: newMargin,
         marginType: newType,
       });
-      
+
       setStrategies((prev) =>
         prev.map((strategy) =>
           strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
@@ -138,7 +177,7 @@ export function StrategyTable() {
       const updatedStrategy = await backendApi.strategies.update(id, {
         status: newStatus,
       });
-      
+
       setStrategies((prev) =>
         prev.map((strategy) =>
           strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
@@ -248,125 +287,170 @@ export function StrategyTable() {
                 <TableRow key={strategy.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{strategy.name}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {editingMargin === strategy.id ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={strategy.margin}
-                            onChange={(e) =>
+                    {editingMargin === strategy.id ? (
+                      <div className="inline-flex items-center space-x-1">
+                        <Input
+                          type="number"
+                          defaultValue={strategy.margin.toString()}
+                          className="w-20 h-8 text-sm"
+                          autoFocus
+                          onBlur={(e) => {
+                            handleMarginChange(
+                              strategy.id,
+                              e.target.value,
+                              strategy.marginType
+                            );
+                            handleMarginBlur();
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const input = e.target as HTMLInputElement;
                               handleMarginChange(
                                 strategy.id,
-                                e.target.value,
+                                input.value,
                                 strategy.marginType
-                              )
+                              );
+                              handleMarginBlur();
                             }
-                            onBlur={handleMarginBlur}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleMarginBlur();
-                              if (e.key === "Escape") handleMarginBlur();
-                            }}
-                            autoFocus
-                            className="w-24"
-                          />
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Badge
-                                variant="outline"
-                                className="cursor-pointer hover:bg-muted transition-colors"
-                                onClick={() => toggleMarginType(strategy.id)}
-                              >
-                                {strategy.marginType === "percentage" ? (
-                                  <Percent className="w-3.5 h-3.5" />
-                                ) : (
-                                  <IndianRupee className="w-3.5 h-3.5" />
-                                )}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Click to toggle between % and ₹
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      ) : (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="flex items-center gap-2 cursor-pointer group"
-                              onDoubleClick={() =>
-                                setEditingMargin(strategy.id)
-                              }
-                            >
-                              <span className="px-2 py-1 rounded group-hover:bg-muted min-w-[80px] transition-colors">
-                                {formatMargin(strategy)}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className="cursor-pointer hover:bg-muted transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleMarginType(strategy.id);
-                                }}
-                              >
-                                {strategy.marginType === "percentage" ? (
-                                  <Percent className="w-3.5 h-3.5" />
-                                ) : (
-                                  <IndianRupee className="w-3.5 h-3.5" />
-                                )}
-                              </Badge>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{getMarginTooltip(strategy)}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Double-click to edit
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
+                          }}
+                        />
+                        <button
+                          onClick={() => toggleMarginType(strategy.id)}
+                          className="text-muted-foreground"
+                        >
+                          {strategy.marginType === "percentage" ? (
+                            <Percent className="h-4 w-4" />
+                          ) : (
+                            <IndianRupee className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className="flex items-center space-x-1 hover:underline"
+                            onClick={() => setEditingMargin(strategy.id)}
+                          >
+                            <span>{formatMargin(strategy)}</span>
+                            <span className="text-muted-foreground">
+                              {strategy.marginType === "percentage" ? (
+                                <Percent className="h-3 w-3" />
+                              ) : (
+                                <IndianRupee className="h-3 w-3" />
+                              )}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{getMarginTooltip(strategy)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center">
-                          {strategy.status === "active" ? (
-                            <Badge
-                              variant="outline"
-                              className="bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer transition-all duration-200 transform hover:scale-105 select-none min-w-[90px] justify-center gap-1 py-1.5"
-                              onClick={() => handleStatusChange(strategy.id)}
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              Active
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer transition-all duration-200 transform hover:scale-105 select-none min-w-[90px] justify-center gap-1 py-1.5"
-                              onClick={() => handleStatusChange(strategy.id)}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              Inactive
-                            </Badge>
-                          )}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>Click to toggle status</TooltipContent>
-                    </Tooltip>
+                    <Badge
+                      variant={
+                        strategy.status === "active" ? "default" : "secondary"
+                      }
+                      className={`cursor-pointer hover:opacity-80 ${strategy.status === "active" ? "bg-green-100 text-green-800 hover:bg-green-200" : ""
+                        }`}
+                      onClick={() => handleStatusChange(strategy.id)}
+                    >
+                      {strategy.status === "active" ? (
+                        <Check className="mr-1 h-3 w-3" />
+                      ) : (
+                        <X className="mr-1 h-3 w-3" />
+                      )}
+                      {strategy.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>{strategy.lastUpdated}</TableCell>
                   <TableCell className="text-right">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => handleSquareOffStrategy(strategy.id)}
-                      disabled={squareOffLoading === strategy.id}
+                      disabled={
+                        squareOffLoading === strategy.id ||
+                        strategy.status !== "active"
+                      }
                     >
-                      {squareOffLoading === strategy.id ? "Squaring Off..." : "Square Off"}
+                      {squareOffLoading === strategy.id
+                        ? "Processing..."
+                        : "Square Off"}
                     </Button>
                   </TableCell>
                 </TableRow>
               ))}
+              {strategies.length === 0 && !error && !isRefreshing && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6">
+                    <div className="flex flex-col items-center space-y-2">
+                      <p className="text-muted-foreground">No strategies found</p>
+                      <Button
+                        onClick={async () => {
+                          setIsRefreshing(true);
+                          try {
+                            await backendApi.strategies.initialize();
+                            await fetchStrategies();
+                            setMessage("Default strategies initialized");
+                          } catch (err) {
+                            setError("Failed to initialize strategies");
+                            console.error(err);
+                          } finally {
+                            setIsRefreshing(false);
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Initialize Default Strategies
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {isRefreshing && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6">
+                    <div className="flex items-center justify-center space-x-2">
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                      <span>Loading strategies...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {error && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6">
+                    <div className="flex flex-col items-center space-y-2">
+                      <p className="text-red-600">{error}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleRefreshData}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Retry Connection
+                        </Button>
+
+                        {useMockData && (
+                          <Button
+                            onClick={useMockDataNow}
+                            variant="default"
+                            size="sm"
+                            className="gap-1"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                            Use Demo Data
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

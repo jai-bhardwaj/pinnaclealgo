@@ -38,10 +38,12 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
-          throw new Error("Missing credentials");
+          throw new Error("Username and password are required");
         }
 
         try {
+          console.log(`Auth: attempting login for user ${credentials.username}`);
+
           // Get the access token
           const authResponse = await backendApi.auth.login(
             credentials.username,
@@ -49,8 +51,11 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!authResponse.access_token) {
-            throw new Error("No access token received");
+            console.error("Auth: No access token received");
+            throw new Error("Authentication failed: No access token received");
           }
+
+          console.log("Auth: Login successful");
 
           // Return the user object with the access token
           return {
@@ -61,7 +66,28 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error("Auth error:", error);
-          throw error;
+
+          // Format errors for better user experience
+          if (error instanceof Error) {
+            // Handle specific error types
+            if (error.message.includes("Connection refused") || error.message.includes("connect")) {
+              throw new Error("Unable to connect to the authentication server. Please try again later.");
+            }
+
+            if (error.message.includes("timeout")) {
+              throw new Error("Authentication request timed out. Please try again later.");
+            }
+
+            if (error.message.includes("Incorrect username/email or password")) {
+              throw new Error("Incorrect username/email or password");
+            }
+
+            // Preserve the original error message if none of the above match
+            throw error;
+          }
+
+          // Generic error fallback
+          throw new Error("An unexpected error occurred during authentication");
         }
       },
     }),
@@ -70,6 +96,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         // Initial sign in
+        console.log("Auth: Adding user data to JWT");
         return {
           ...token,
           access_token: user.access_token,
@@ -106,16 +133,34 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET || "fallback-dev-secret-do-not-use-in-production",
+  debug: true, // Enable debug mode to help diagnose issues
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: true,
+        secure: false, // Set to false to work in both HTTP and HTTPS
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: false,
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: false,
       },
     },
   },

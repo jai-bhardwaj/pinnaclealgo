@@ -1,43 +1,51 @@
-import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request });
-  const isAuthenticated = !!token;
-  const isAuthPage = request.nextUrl.pathname === "/login";
-  const isHomePage = request.nextUrl.pathname === "/";
+  // Check paths
+  const { pathname, search } = request.nextUrl
+  const fullUrl = `${pathname}${search}`
+  const isLoginPage = pathname === '/login'
+  const isSettingsPage = pathname.startsWith('/settings')
 
-  // If the user is not authenticated and trying to access a protected route
-  if (!isAuthenticated && !isAuthPage) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  // Get the token to check if user is authenticated
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET || "fallback-dev-secret-do-not-use-in-production"
+  })
+
+  // A user is authenticated if token exists AND it contains the access_token property
+  const isAuthenticated = !!token && 'access_token' in token
+
+  console.log(`Middleware: Path=${fullUrl}, Token=${!!token}, IsAuthenticated=${isAuthenticated}, LoginPage=${isLoginPage}, SettingsPage=${isSettingsPage}`)
+
+  // If on login page and authenticated, redirect to settings
+  if (isLoginPage && isAuthenticated) {
+    console.log('Middleware: Redirecting authenticated user from login to settings')
+    const redirectUrl = new URL('/settings', request.url)
+    // Add cache busting parameter to avoid browser caching
+    redirectUrl.searchParams.set('t', Date.now().toString())
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // If the user is authenticated and trying to access auth pages
-  if (isAuthenticated && isAuthPage) {
-    const settingsUrl = new URL("/settings", request.url);
-    return NextResponse.redirect(settingsUrl);
+  // If on settings page and not authenticated, redirect to login
+  if (isSettingsPage && !isAuthenticated) {
+    console.log('Middleware: Redirecting unauthenticated user from settings to login')
+    const redirectUrl = new URL('/login', request.url)
+    // Add cache busting parameter to avoid browser caching
+    redirectUrl.searchParams.set('t', Date.now().toString())
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Redirect root to settings if authenticated
-  if (isAuthenticated && isHomePage) {
-    const settingsUrl = new URL("/settings", request.url);
-    return NextResponse.redirect(settingsUrl);
-  }
-
-  return NextResponse.next();
+  // Otherwise, proceed normally
+  return NextResponse.next()
 }
 
-// Configure the paths that should be protected
+// Run middleware on these paths
 export const config = {
   matcher: [
-    // Protected routes that need authentication
-    "/",
-    "/orders/:path*",
-    "/pnl/:path*",
-    "/settings/:path*",
-    // Auth routes that should redirect if already authenticated
-    "/login",
+    '/login',
+    '/settings/:path*'
   ],
-};
+}

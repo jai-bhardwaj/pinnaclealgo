@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter, usePathname } from "next/navigation";
 
+// Define user type
 type User = {
   id: string;
   name: string | null;
@@ -12,76 +12,52 @@ type User = {
   image: string | null;
 };
 
+// Define context type
 type UserContextType = {
   user: User | null;
-  loading: boolean;
+  isLoading: boolean;
+  isAuthenticated: boolean;
 };
 
+// Create context with default values
 const UserContext = createContext<UserContextType>({
   user: null,
-  loading: true,
+  isLoading: true,
+  isAuthenticated: false,
 });
 
-// Routes that don't require authentication
-const publicRoutes = ["/login", "/register", "/forgot-password"];
-
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
 
-  useEffect(() => {
-    const handleRouting = async () => {
-      // Still loading the session
-      if (status === "loading") {
-        setLoading(true);
-        return;
-      }
-
-      const isPublicRoute = publicRoutes.some((route) =>
-        pathname.startsWith(route)
-      );
-
-      if (status === "authenticated" && session) {
-        setLoading(false);
-        // If on public route (like login), redirect to default route
-        if (isPublicRoute) {
-          router.push("/settings");
-        }
-      } else if (status === "unauthenticated") {
-        setLoading(false);
-        // If trying to access any non-public route without auth, redirect to login
-        if (!isPublicRoute) {
-          router.push("/login");
-        }
-      }
-    };
-
-    handleRouting();
-  }, [session, status, router, pathname]);
-
+  // Transform session data into user object
   const user: User | null = session
     ? {
-        id: (session.user as any)?.id || "default-id",
-        name: session.user?.name || null,
-        email: session.user?.email || null,
-        role: (session.user as any)?.role || "user",
-        image: session.user?.image || null,
-      }
+      id: (session.user as any)?.id || "default-id",
+      name: session.user?.name || null,
+      email: session.user?.email || null,
+      role: (session.user as any)?.role || "user",
+      image: session.user?.image || null,
+    }
     : null;
 
+  // Determine authentication state
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated" && !!user;
+
   return (
-    <UserContext.Provider value={{ user, loading }}>
+    <UserContext.Provider value={{ user, isLoading, isAuthenticated }}>
       {children}
     </UserContext.Provider>
   );
 }
 
-export const useUser = () => {
+// Hook to access user context
+export function useUser() {
   const context = useContext(UserContext);
+
   if (context === undefined) {
     throw new Error("useUser must be used within a UserProvider");
   }
+
   return context;
-};
+}
