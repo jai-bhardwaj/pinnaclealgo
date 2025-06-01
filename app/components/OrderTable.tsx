@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { observer } from 'mobx-react-lite';
+import { useOrderStore } from '@/stores';
 import {
   Table,
   TableBody,
@@ -19,74 +21,52 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { RefreshCcw, IndianRupee } from "lucide-react";
-import { backendApi } from "@/lib/backend_api";
 
-interface Order {
-  broker_order_id: string;
-  internal_order_id?: string;
-  status: string;
-  message?: string;
-  broker: string;
-  symbol: string;
-  side: string;
-  quantity: number;
-  filled_quantity?: number;
-  pending_quantity?: number;
-  average_price?: number;
-  order_type: string;
-  product_type: string;
-  trigger_price?: number;
-  price: number;
-  order_timestamp?: string;
-}
-
-export function OrderTable() {
+export const OrderTable = observer(() => {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const orderStore = useOrderStore();
+  const { orders, isLoading, error } = orderStore;
   const [message, setMessage] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    if (!session?.user?.id) {
+      console.error("No user ID available");
+      return;
+    }
     try {
-      const data = await backendApi.orders.getAll();
-      setOrders(data);
-      setError(null);
+      await orderStore.fetchOrders(session.user.id);
     } catch (err) {
       console.error("Error fetching orders:", err);
-      setError(err instanceof Error ? err.message : "Failed to load orders");
     }
-  };
+  }, [session?.user?.id, orderStore]);
 
   useEffect(() => {
-    if (session?.user?.access_token) {
+    if (session?.user) {
       fetchOrders();
     }
-  }, [session]);
+  }, [session?.user, fetchOrders]);
 
   const handleRefreshData = async () => {
-    setIsRefreshing(true);
     await fetchOrders();
-    setIsRefreshing(false);
   };
 
-  const handleCancelOrder = async (brokerOrderId: string) => {
+  const handleCancelOrder = async (orderId: string) => {
     try {
-      const result = await backendApi.orders.cancel(brokerOrderId);
-      setMessage(result.message || "Order cancelled successfully");
+      const result = await orderStore.cancelOrder(orderId);
+      setMessage("Order cancelled successfully");
       await fetchOrders();
     } catch (err) {
       console.error("Error cancelling order:", err);
-      setError("Failed to cancel order");
     }
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       PENDING: { color: "bg-yellow-100 text-yellow-800", hover: "hover:bg-yellow-200" },
-      COMPLETED: { color: "bg-green-100 text-green-800", hover: "hover:bg-green-200" },
+      COMPLETE: { color: "bg-green-100 text-green-800", hover: "hover:bg-green-200" },
       CANCELLED: { color: "bg-red-100 text-red-800", hover: "hover:bg-red-200" },
       REJECTED: { color: "bg-red-100 text-red-800", hover: "hover:bg-red-200" },
+      PLACED: { color: "bg-blue-100 text-blue-800", hover: "hover:bg-blue-200" },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || {
@@ -121,17 +101,17 @@ export function OrderTable() {
               Total: {orders.length}
             </Badge>
             <Badge variant="outline" className="h-7">
-              Pending: {orders.filter((o) => o.status === "PENDING").length}
+              Pending: {orderStore.pendingOrders.length}
             </Badge>
           </div>
           <Button
             onClick={handleRefreshData}
             variant="outline"
             className="gap-2"
-            disabled={isRefreshing}
+            disabled={isLoading}
           >
             <RefreshCcw
-              className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
             />
             Refresh Data
           </Button>
@@ -163,24 +143,24 @@ export function OrderTable() {
             </TableHeader>
             <TableBody>
               {orders.map((order) => (
-                <TableRow key={order.broker_order_id} className="hover:bg-muted/50">
+                <TableRow key={order.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">
                     <Tooltip>
                       <TooltipTrigger>
                         <span className="cursor-help">
-                          {order.broker_order_id.slice(0, 8)}...
+                          {order.brokerOrderId ? order.brokerOrderId.slice(0, 8) + '...' : order.id.slice(0, 8) + '...'}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Broker Order ID: {order.broker_order_id}</p>
-                        {order.internal_order_id && (
-                          <p>Internal Order ID: {order.internal_order_id}</p>
+                        <p>Order ID: {order.id}</p>
+                        {order.brokerOrderId && (
+                          <p>Broker Order ID: {order.brokerOrderId}</p>
                         )}
                       </TooltipContent>
                     </Tooltip>
                   </TableCell>
                   <TableCell>{order.symbol}</TableCell>
-                  <TableCell>{order.order_type}</TableCell>
+                  <TableCell>{order.orderType}</TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
@@ -194,31 +174,33 @@ export function OrderTable() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {order.filled_quantity !== undefined && (
+                    {order.filledQuantity !== undefined && order.filledQuantity !== null ? (
                       <Tooltip>
                         <TooltipTrigger>
                           <span className="cursor-help">
-                            {order.filled_quantity}/{order.quantity}
+                            {order.filledQuantity}/{order.quantity}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Filled: {order.filled_quantity}</p>
-                          <p>Pending: {order.pending_quantity}</p>
+                          <p>Filled: {order.filledQuantity}</p>
+                          <p>Pending: {order.quantity - order.filledQuantity}</p>
                           <p>Total: {order.quantity}</p>
                         </TooltipContent>
                       </Tooltip>
+                    ) : (
+                      <span>{order.quantity}</span>
                     )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <IndianRupee className="w-3.5 h-3.5" />
-                      {formatPrice(order.price)}
+                      {formatPrice(order.price || 0)}
                     </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(order.status)}</TableCell>
                   <TableCell>
-                    {order.order_timestamp
-                      ? new Date(order.order_timestamp).toLocaleString()
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleString()
                       : "N/A"}
                   </TableCell>
                   <TableCell className="text-right">
@@ -226,7 +208,7 @@ export function OrderTable() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCancelOrder(order.broker_order_id)}
+                        onClick={() => handleCancelOrder(order.id)}
                       >
                         Cancel
                       </Button>
@@ -240,4 +222,4 @@ export function OrderTable() {
       </div>
     </TooltipProvider>
   );
-} 
+}); 

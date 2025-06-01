@@ -1,167 +1,133 @@
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { backendApi } from "./backend_api";
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
 
-// Extend the built-in session types
-declare module "next-auth" {
-  interface Session {
-    user: User;
-  }
-}
+const prisma = new PrismaClient();
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    email: string;
-    name: string;
-    access_token: string;
-  }
-}
-
-// Extend the built-in User type
-declare module "next-auth" {
-  interface User {
-    id: string;
-    email: string;
-    name: string;
-    access_token: string;
-  }
-}
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: 'credentials',
       credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        username: { label: 'Username or Email', type: 'text' },
+        password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        if (isDevelopment) {
+          console.log('NextAuth authorize function called');
+        }
+
         if (!credentials?.username || !credentials?.password) {
-          throw new Error("Username and password are required");
+          if (isDevelopment) {
+            console.log('Authorize failed: Missing username or password');
+          }
+          return null;
         }
 
         try {
-          console.log(`Auth: attempting login for user ${credentials.username}`);
+          if (isDevelopment) {
+            console.log('Attempting to find user in DB...');
+          }
+          const user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { username: credentials.username },
+                { email: credentials.username },
+              ],
+            },
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: true,
+              hashedPassword: true,
+              status: true,
+            },
+          });
 
-          // Get the access token
-          const authResponse = await backendApi.auth.login(
-            credentials.username,
-            credentials.password
+          if (isDevelopment) {
+            console.log('DB Query Result:', user ? 'User found' : 'User not found');
+          }
+
+          if (!user) {
+            if (isDevelopment) {
+              console.log('Authorize failed: User not found');
+            }
+            return null;
+          }
+
+          if (isDevelopment) {
+            console.log('User found, attempting to compare passwords...');
+          }
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.hashedPassword
           );
 
-          if (!authResponse.access_token) {
-            console.error("Auth: No access token received");
-            throw new Error("Authentication failed: No access token received");
+          if (isDevelopment) {
+            console.log('Password comparison result:', isPasswordValid);
           }
 
-          console.log("Auth: Login successful");
+          if (!isPasswordValid) {
+            if (isDevelopment) {
+              console.log('Authorize failed: Incorrect password');
+            }
+            return null;
+          }
 
-          // Return the user object with the access token
+          if (user.status !== 'ACTIVE') {
+            if (isDevelopment) {
+              console.log('Authorize failed: User account is not active');
+            }
+            return null;
+          }
+
+          if (isDevelopment) {
+            console.log('Authentication successful for user:', user.username);
+          }
+
           return {
-            id: credentials.username,
-            email: credentials.username,
-            name: credentials.username,
-            access_token: authResponse.access_token,
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            isActive: user.status === 'ACTIVE',
           };
         } catch (error) {
-          console.error("Auth error:", error);
-
-          // Format errors for better user experience
-          if (error instanceof Error) {
-            // Handle specific error types
-            if (error.message.includes("Connection refused") || error.message.includes("connect")) {
-              throw new Error("Unable to connect to the authentication server. Please try again later.");
-            }
-
-            if (error.message.includes("timeout")) {
-              throw new Error("Authentication request timed out. Please try again later.");
-            }
-
-            if (error.message.includes("Incorrect username/email or password")) {
-              throw new Error("Incorrect username/email or password");
-            }
-
-            // Preserve the original error message if none of the above match
-            throw error;
-          }
-
-          // Generic error fallback
-          throw new Error("An unexpected error occurred during authentication");
+          console.error('Authentication error:', isDevelopment ? error : 'Authentication failed');
+          return null;
         }
       },
     }),
   ],
+  session: {
+    strategy: 'jwt',
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // Initial sign in
-        console.log("Auth: Adding user data to JWT");
-        return {
-          ...token,
-          access_token: user.access_token,
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
+        token.userId = user.id;
+        token.username = user.username;
+        token.role = user.role;
+        token.isActive = user.isActive;
       }
       return token;
     },
     async session({ session, token }) {
-      // Send properties to the client
-      session.user = {
-        ...session.user,
-        access_token: token.access_token,
-        id: token.id,
-        email: token.email,
-        name: token.name,
-      };
+      if (token && session.user) {
+        session.user.id = token.userId;
+        session.user.username = token.username;
+        session.user.role = token.role;
+      }
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
     },
   },
   pages: {
-    signIn: "/login",
-    signOut: "/auth/signout",
-    error: "/auth/error",
+    signIn: '/login',
   },
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
-  secret: process.env.NEXTAUTH_SECRET || "fallback-dev-secret-do-not-use-in-production",
-  debug: true, // Enable debug mode to help diagnose issues
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false, // Set to false to work in both HTTP and HTTPS
-      },
-    },
-    callbackUrl: {
-      name: `next-auth.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false,
-      },
-    },
-    csrfToken: {
-      name: `next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false,
-      },
-    },
-  },
-};
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+}; 

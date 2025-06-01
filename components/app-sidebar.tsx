@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ShoppingCart, LineChart, Settings2 } from "lucide-react";
+import { ShoppingCart, LineChart, Settings2, BarChart3, TrendingUp, Zap } from "lucide-react";
 import { useUser } from "@/contexts/user-context";
 
 import { NavMain } from "@/components/nav-main";
@@ -17,9 +17,24 @@ import {
 
 const navItems = [
   {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: BarChart3,
+  },
+  {
+    title: "Strategies",
+    url: "/strategies",
+    icon: Zap,
+  },
+  {
     title: "Orders",
     url: "/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Portfolio",
+    url: "/portfolio",
+    icon: TrendingUp,
   },
   {
     title: "PnL",
@@ -36,13 +51,11 @@ const navItems = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useUser();
 
-  if (!user) return null;
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher
-          teams={[{ name: user.role, logo: Settings2, plan: user.role }]}
+          teams={[{ name: user?.role || "Trader", logo: Settings2, plan: user?.role || "Trader" }]}
         />
       </SidebarHeader>
       <SidebarContent>

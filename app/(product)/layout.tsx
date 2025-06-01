@@ -1,64 +1,53 @@
 "use client";
 
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { usePathname } from "next/navigation";
-import { Suspense } from "react";
-
-function Loading() {
-  return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-r-transparent" />
-    </div>
-  );
-}
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 export default function ProductLayout({
-  children,
+    children,
 }: {
-  children: React.ReactNode;
+    children: React.ReactNode;
 }) {
-  // Get the current pathname and format it for breadcrumb
-  const pathname = usePathname();
-  const pageName = pathname.split("/").pop() || "Dashboard";
-  const formattedPageName =
-    pageName.charAt(0).toUpperCase() + pageName.slice(1);
+    const { data: session, status } = useSession();
 
-  return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{formattedPageName}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <Suspense fallback={<Loading />}>{children}</Suspense>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
-}
+    useEffect(() => {
+        if (status === "loading") return; // Still loading
+
+        if (status === "unauthenticated") {
+            // Redirect to login if not authenticated
+            window.location.href = "/login";
+            return;
+        }
+    }, [status]);
+
+    // Show loading while checking authentication
+    if (status === "loading") {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show nothing while redirecting
+    if (status === "unauthenticated") {
+        return null;
+    }
+
+    // Render the authenticated layout
+    return (
+        <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+                <main className="flex-1 overflow-auto">
+                    {children}
+                </main>
+            </SidebarInset>
+        </SidebarProvider>
+    );
+} 

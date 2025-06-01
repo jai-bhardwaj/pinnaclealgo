@@ -15,14 +15,19 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET || "fallback-dev-secret-do-not-use-in-production"
   })
 
-  // A user is authenticated if token exists AND it contains the access_token property
-  const isAuthenticated = !!token && 'access_token' in token
+  // A user is authenticated if token exists AND contains user data
+  const isAuthenticated = !!token && !!token.userId
 
-  console.log(`Middleware: Path=${fullUrl}, Token=${!!token}, IsAuthenticated=${isAuthenticated}, LoginPage=${isLoginPage}, SettingsPage=${isSettingsPage}`)
+  // Only log in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Middleware: Path=${fullUrl}, Token=${!!token}, UserId=${token?.userId}, IsAuthenticated=${isAuthenticated}, LoginPage=${isLoginPage}, SettingsPage=${isSettingsPage}`)
+  }
 
   // If on login page and authenticated, redirect to settings
   if (isLoginPage && isAuthenticated) {
-    console.log('Middleware: Redirecting authenticated user from login to settings')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Middleware: Redirecting authenticated user from login to settings')
+    }
     const redirectUrl = new URL('/settings', request.url)
     // Add cache busting parameter to avoid browser caching
     redirectUrl.searchParams.set('t', Date.now().toString())
@@ -31,7 +36,9 @@ export async function middleware(request: NextRequest) {
 
   // If on settings page and not authenticated, redirect to login
   if (isSettingsPage && !isAuthenticated) {
-    console.log('Middleware: Redirecting unauthenticated user from settings to login')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Middleware: Redirecting unauthenticated user from settings to login')
+    }
     const redirectUrl = new URL('/login', request.url)
     // Add cache busting parameter to avoid browser caching
     redirectUrl.searchParams.set('t', Date.now().toString())

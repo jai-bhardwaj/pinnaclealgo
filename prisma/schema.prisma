@@ -1,0 +1,653 @@
+// This is your updated Prisma schema file
+// Aligned with the trading engine implementation
+// Updated: 2025-06-01
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MANAGEMENT & AUTHENTICATION
+// ============================================================================
+
+enum UserRole {
+  USER          // Regular trading user
+  ADMIN         // System administrator
+  SUPER_ADMIN   // Super administrator with full access
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  username          String     @unique
+  hashedPassword    String
+  firstName         String?
+  lastName          String?
+  phone             String?
+  role              UserRole   @default(USER)
+  status            UserStatus @default(PENDING_VERIFICATION)
+  emailVerified     Boolean    @default(false)
+  phoneVerified     Boolean    @default(false)
+  twoFactorEnabled  Boolean    @default(false)
+  twoFactorSecret   String?
+  lastLoginAt       DateTime?
+  loginAttempts     Int        @default(0)
+  lockedUntil       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Relations
+  profile           UserProfile?
+  brokerConfigs     BrokerConfig[]
+  strategies        Strategy[]
+  orders            Order[]
+  trades            Trade[]
+  positions         Position[]
+  balance           Balance?
+  riskProfile       RiskProfile?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  sessions          UserSession[]
+  apiKeys           ApiKey[]
+  watchlists        Watchlist[]
+  alerts            Alert[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  avatar            String?
+  bio               String?
+  timezone          String   @default("UTC")
+  language          String   @default("en")
+  tradingExperience String?  // BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
+  riskTolerance     String?  // LOW, MEDIUM, HIGH
+  investmentGoals   String?
+  preferredAssets   String[] // Array of asset classes
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  keyHash     String   @unique
+  permissions String[] // Array of permissions
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ============================================================================
+// BROKER INTEGRATION
+// ============================================================================
+
+enum BrokerName {
+  ANGEL_ONE
+  ZERODHA
+  UPSTOX
+  FYERS
+  ALICE_BLUE
+}
+
+model BrokerConfig {
+  id           String     @id @default(cuid())
+  userId       String
+  brokerName   BrokerName
+  displayName  String?
+  apiKey       String
+  clientId     String
+  password     String     // Encrypted
+  totpSecret   String?    // Encrypted
+  accessToken  String?    // Encrypted
+  refreshToken String?    // Encrypted
+  isActive     Boolean    @default(true)
+  isConnected  Boolean    @default(false)
+  lastSyncAt   DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, brokerName])
+  @@map("broker_configs")
+}
+
+// ============================================================================
+// RISK MANAGEMENT
+// ============================================================================
+
+enum RiskLevel {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+  CUSTOM
+}
+
+model RiskProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  riskLevel             RiskLevel @default(MODERATE)
+  maxDailyLossPct       Float     @default(0.02)    // 2%
+  maxWeeklyLossPct      Float     @default(0.05)    // 5%
+  maxMonthlyLossPct     Float     @default(0.10)    // 10%
+  maxPositionSizePct    Float     @default(0.10)    // 10%
+  maxOrderValue         Float     @default(50000)   // ₹50,000
+  maxOrdersPerMinute    Int       @default(10)
+  maxExposurePerSymbol  Float     @default(0.05)    // 5%
+  stopLossEnabled       Boolean   @default(true)
+  defaultStopLossPct    Float     @default(0.02)    // 2%
+  takeProfitEnabled     Boolean   @default(true)
+  defaultTakeProfitPct  Float     @default(0.04)    // 4%
+  allowedAssetClasses   String[]  // EQUITY, DERIVATIVES, CRYPTO, COMMODITIES
+  allowedExchanges      String[]  // NSE, BSE, MCX, etc.
+  tradingHoursOnly      Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("risk_profiles")
+}
+
+// ============================================================================
+// ALGORITHMIC TRADING STRATEGIES
+// ============================================================================
+
+enum StrategyStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  STOPPED
+  ERROR
+  BACKTESTING
+}
+
+enum AssetClass {
+  EQUITY
+  DERIVATIVES
+  CRYPTO
+  COMMODITIES
+  FOREX
+}
+
+enum TimeFrame {
+  SECOND_1
+  SECOND_5
+  SECOND_15
+  SECOND_30
+  MINUTE_1
+  MINUTE_3
+  MINUTE_5
+  MINUTE_15
+  MINUTE_30
+  HOUR_1
+  HOUR_4
+  DAY_1
+  WEEK_1
+  MONTH_1
+}
+
+model Strategy {
+  id                String         @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  strategyType      String         // mean_reversion, momentum, grid_trading, etc.
+  assetClass        AssetClass
+  symbols           String[]       // Array of symbols to trade
+  timeframe         TimeFrame
+  status            StrategyStatus @default(DRAFT)
+  
+  // Strategy Parameters (JSON)
+  parameters        Json           // Strategy-specific parameters
+  riskParameters    Json           // Risk management parameters
+  
+  // Margin and Trading Configuration (Updated)
+  margin            Float          @default(5.0)     // Margin amount (percentage or rupees)
+  marginType        String         @default("percentage") // "percentage" or "rupees"  
+  basePrice         Float          @default(50000.0) // Base price for percentage calculations
+  
+  // Performance Metrics
+  totalPnl          Float          @default(0)
+  totalTrades       Int            @default(0)
+  winningTrades     Int            @default(0)
+  losingTrades      Int            @default(0)
+  winRate           Float          @default(0)
+  sharpeRatio       Float?
+  maxDrawdown       Float          @default(0)
+  
+  // Execution Settings
+  isLive            Boolean        @default(false)
+  isPaperTrading    Boolean        @default(true)
+  maxPositions      Int            @default(5)
+  capitalAllocated  Float          @default(100000) // ₹1,00,000
+  
+  // Scheduling
+  startTime         String?        // HH:MM format
+  endTime           String?        // HH:MM format
+  activeDays        String[]       // Array of days: MON, TUE, etc.
+  
+  // Metadata
+  version           Int            @default(1)
+  lastExecutedAt    DateTime?
+  nextExecutionAt   DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders            Order[]
+  backtests         Backtest[]
+  strategyLogs      StrategyLog[]
+
+  @@map("strategies")
+}
+
+model Backtest {
+  id            String   @id @default(cuid())
+  strategyId    String
+  name          String
+  startDate     DateTime
+  endDate       DateTime
+  initialCapital Float
+  
+  // Results
+  finalCapital  Float
+  totalReturn   Float
+  annualReturn  Float
+  sharpeRatio   Float
+  maxDrawdown   Float
+  totalTrades   Int
+  winRate       Float
+  
+  // Detailed Results (JSON)
+  trades        Json     // Array of trade details
+  metrics       Json     // Detailed performance metrics
+  
+  status        String   @default("RUNNING") // RUNNING, COMPLETED, FAILED
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@map("backtests")
+}
+
+model StrategyLog {
+  id         String   @id @default(cuid())
+  strategyId String
+  level      String   // INFO, WARNING, ERROR
+  message    String
+  data       Json?    // Additional log data
+  timestamp  DateTime @default(now())
+
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@map("strategy_logs")
+}
+
+// ============================================================================
+// ORDERS & TRADES
+// ============================================================================
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  SL        // Stop Loss
+  SL_M      // Stop Loss Market
+}
+
+enum ProductType {
+  DELIVERY
+  INTRADAY
+  MARGIN
+  NORMAL
+  CARRYFORWARD
+  BO        // Bracket Order
+  CO        // Cover Order
+}
+
+enum OrderStatus {
+  PENDING
+  QUEUED    // Added for Redis queue processing
+  PLACED
+  OPEN
+  COMPLETE
+  CANCELLED
+  REJECTED
+  ERROR
+  UNKNOWN
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  userId            String
+  strategyId        String?
+  
+  // Order Details
+  symbol            String
+  exchange          String
+  side              OrderSide
+  orderType         OrderType
+  productType       ProductType
+  quantity          Int
+  price             Float?      // Made nullable to match implementation
+  triggerPrice      Float?
+  variety           String      @default("NORMAL")
+  
+  // Execution Details
+  brokerOrderId     String?
+  status            OrderStatus @default(PENDING)
+  statusMessage     String?
+  filledQuantity    Int         @default(0)
+  averagePrice      Float?
+  
+  // Metadata
+  isPaperTrade      Boolean     @default(false)
+  parentOrderId     String?     // For bracket/cover orders
+  tags              String[]    // Custom tags
+  notes             String?
+  
+  // Timestamps
+  placedAt          DateTime?
+  executedAt        DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy          Strategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  trades            Trade[]
+  parentOrder       Order?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders       Order[]     @relation("OrderHierarchy")
+
+  @@map("orders")
+}
+
+model Trade {
+  id              String      @id @default(cuid())
+  userId          String
+  orderId         String
+  
+  // Trade Details
+  tradeId         String?     // Broker trade ID
+  symbol          String
+  exchange        String
+  side            OrderSide
+  quantity        Int
+  price           Float
+  productType     ProductType
+  orderType       OrderType
+  
+  // Fees & Charges
+  brokerage       Float       @default(0)
+  taxes           Float       @default(0)
+  totalCharges    Float       @default(0)
+  netAmount       Float       // Amount after all charges
+  
+  // Timestamps
+  tradeTimestamp  DateTime?
+  createdAt       DateTime    @default(now())
+
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("trades")
+}
+
+// ============================================================================
+// PORTFOLIO & POSITIONS
+// ============================================================================
+
+model Position {
+  id                String      @id @default(cuid())
+  userId            String
+  symbol            String
+  exchange          String
+  productType       ProductType
+  
+  // Position Details
+  quantity          Int         // Net quantity (can be negative for short)
+  averagePrice      Float
+  lastTradedPrice   Float
+  pnl               Float       // Unrealized P&L
+  realizedPnl       Float       @default(0) // Realized P&L
+  
+  // Market Data
+  marketValue       Float       // Current market value
+  dayChange         Float       @default(0)
+  dayChangePct      Float       @default(0)
+  
+  // Metadata
+  firstBuyDate      DateTime?
+  lastTradeDate     DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol, exchange, productType])
+  @@map("positions")
+}
+
+model Balance {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  
+  // Cash Balances
+  availableCash   Float    @default(0)
+  usedMargin      Float    @default(0)
+  totalBalance    Float    @default(0)
+  
+  // Portfolio Values
+  portfolioValue  Float    @default(0)
+  totalPnl        Float    @default(0)
+  dayPnl          Float    @default(0)
+  
+  // Limits
+  buyingPower     Float    @default(0)
+  marginUsed      Float    @default(0)
+  marginAvailable Float    @default(0)
+  
+  // Timestamps
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("balances")
+}
+
+// ============================================================================
+// MARKET DATA & WATCHLISTS
+// ============================================================================
+
+model Watchlist {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  symbols     String[] // Array of symbols
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("watchlists")
+}
+
+model MarketData {
+  id              String   @id @default(cuid())
+  symbol          String
+  exchange        String
+  
+  // OHLCV Data
+  open            Float
+  high            Float
+  low             Float
+  close           Float
+  volume          Int
+  
+  // Additional Data
+  previousClose   Float?
+  change          Float?
+  changePct       Float?
+  
+  // Metadata
+  timestamp       DateTime
+  timeframe       TimeFrame
+  createdAt       DateTime @default(now())
+
+  @@unique([symbol, exchange, timestamp, timeframe])
+  @@map("market_data")
+}
+
+// ============================================================================
+// NOTIFICATIONS & ALERTS
+// ============================================================================
+
+enum NotificationType {
+  ORDER_EXECUTED
+  ORDER_CANCELLED
+  STRATEGY_STARTED
+  STRATEGY_STOPPED
+  RISK_VIOLATION
+  SYSTEM_ALERT
+  PRICE_ALERT
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?              // Additional notification data
+  status    NotificationStatus @default(UNREAD)
+  createdAt DateTime           @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  userId      String
+  symbol      String
+  exchange    String
+  condition   String   // ABOVE, BELOW, CROSSES_ABOVE, CROSSES_BELOW
+  targetPrice Float
+  isActive    Boolean  @default(true)
+  isTriggered Boolean  @default(false)
+  triggeredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+// ============================================================================
+// SYSTEM & AUDIT
+// ============================================================================
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  ORDER_PLACED
+  ORDER_CANCELLED
+  STRATEGY_CREATED
+  STRATEGY_UPDATED
+  STRATEGY_STARTED
+  STRATEGY_STOPPED
+  SETTINGS_CHANGED
+  PASSWORD_CHANGED
+  API_KEY_CREATED
+  API_KEY_DELETED
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String?
+  action      AuditAction
+  resource    String?     // Resource affected (order_id, strategy_id, etc.)
+  details     Json?       // Additional details
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  isPublic    Boolean  @default(false) // Whether config is visible to users
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_config")
+} 

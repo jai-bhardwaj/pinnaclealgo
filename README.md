@@ -1,36 +1,290 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trading Platform Frontend
 
-## Getting Started
+A modern, responsive trading platform frontend built with Next.js, TypeScript, and Tailwind CSS.
 
-First, run the development server:
+## 🚀 Features
 
+- **Modern UI/UX**: Built with Radix UI components and Tailwind CSS
+- **Real-time Trading**: Live order management and strategy monitoring
+- **Authentication**: Secure user authentication with NextAuth.js
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Type Safety**: Full TypeScript support for better development experience
+- **Database Integration**: Prisma ORM with PostgreSQL support
+
+## 📋 Prerequisites
+
+- Node.js 18 or higher
+- npm or yarn
+- PostgreSQL database
+- Trading backend API running
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd trading-frontend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .sample.env .env.local
+   ```
+   
+   Edit `.env.local` with your configuration:
+   ```env
+   # Database
+   DATABASE_URL="your-postgresql-connection-string"
+   
+   # NextAuth Configuration
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="your-secret-key-here"
+   
+   # API Configuration
+   API_BASE_URL="http://your-backend-api:8000"
+   
+   # Environment
+   NODE_ENV="development"
+   ```
+
+4. **Set up the database**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+## 🚀 Deployment
+
+The project includes a comprehensive deployment script that supports multiple environments:
+
+### Development
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+./deploy.sh development
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Production
+```bash
+./deploy.sh production
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Docker
+```bash
+./deploy.sh docker
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Docker Compose
+```bash
+./deploy.sh docker-compose
+```
 
-## Learn More
+## 📁 Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+trading-frontend/
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Authentication pages
+│   ├── components/        # Page-specific components
+│   ├── dashboard/         # Dashboard pages
+│   └── globals.css        # Global styles
+├── components/            # Reusable UI components
+│   ├── ui/               # Base UI components
+│   ├── app-sidebar.tsx   # Application sidebar
+│   └── nav-user.tsx      # User navigation
+├── contexts/             # React contexts
+│   └── user-context.tsx  # User state management
+├── lib/                  # Utility libraries
+│   └── backend_api.ts    # API client
+├── pages/                # Next.js pages (legacy)
+│   └── api/              # API routes
+├── prisma/               # Database schema and migrations
+├── public/               # Static assets
+├── deploy.sh             # Deployment script
+└── package.json          # Dependencies and scripts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔧 Available Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
 
-## Deploy on Vercel
+## 🎨 UI Components
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The project uses a modern component library built on:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Radix UI**: Accessible, unstyled UI primitives
+- **Tailwind CSS**: Utility-first CSS framework
+- **Lucide React**: Beautiful & consistent icons
+- **Custom Components**: Tailored for trading workflows
+
+### Key Components
+
+- **StrategyTable**: Manage trading strategies
+- **OrderTable**: View and manage orders
+- **AppSidebar**: Navigation sidebar
+- **UserProvider**: User state management
+
+## 🔐 Authentication
+
+Authentication is handled by NextAuth.js with support for:
+
+- JWT tokens
+- Session management
+- Protected routes
+- User context
+
+## 📊 API Integration
+
+The frontend communicates with the trading backend through:
+
+- RESTful API calls
+- Automatic token management
+- Error handling and retry logic
+- Real-time data updates
+
+### API Client Features
+
+- **Automatic Authentication**: Handles token refresh and storage
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Retry Logic**: Automatic retry for failed requests
+- **Type Safety**: Full TypeScript support for API responses
+
+## 🐳 Docker Support
+
+The project includes Docker support for easy deployment:
+
+### Dockerfile
+- Multi-stage build for optimized image size
+- Node.js 18 Alpine base image
+- Production-ready configuration
+
+### Docker Compose
+- Frontend service
+- PostgreSQL database
+- Environment variable management
+- Volume persistence
+
+## 🌍 Environment Configuration
+
+The deployment script supports multiple environments:
+
+- **Development**: `.env.local`
+- **Staging**: `.env.staging`
+- **Production**: `.env.production`
+
+### Required Environment Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
+| `NEXTAUTH_URL` | Application URL | `http://localhost:3000` |
+| `NEXTAUTH_SECRET` | JWT secret key | `your-secret-key` |
+| `API_BASE_URL` | Backend API URL | `http://localhost:8000` |
+| `NODE_ENV` | Environment mode | `development` |
+
+## 🔧 Development
+
+### Getting Started
+
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+2. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+3. The page auto-updates as you edit files
+
+### Code Style
+
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- Tailwind CSS for styling
+
+### Component Development
+
+Components follow these patterns:
+
+- **Functional Components**: Using React hooks
+- **TypeScript**: Full type definitions
+- **Responsive Design**: Mobile-first approach
+- **Accessibility**: ARIA labels and keyboard navigation
+
+## 🚀 Production Deployment
+
+### Manual Deployment
+
+1. Build the application:
+   ```bash
+   npm run build
+   ```
+
+2. Start the production server:
+   ```bash
+   npm start
+   ```
+
+### Automated Deployment
+
+Use the deployment script for automated deployment:
+
+```bash
+./deploy.sh production
+```
+
+This will:
+- Load environment variables
+- Check requirements
+- Install dependencies
+- Set up database
+- Build the application
+- Start the production server
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Build Errors**: Clear `.next` directory and rebuild
+   ```bash
+   rm -rf .next
+   npm run build
+   ```
+
+2. **Database Connection**: Verify `DATABASE_URL` in environment variables
+
+3. **API Connection**: Check `API_BASE_URL` and backend server status
+
+4. **Authentication Issues**: Verify `NEXTAUTH_SECRET` and `NEXTAUTH_URL`
+
+### Debug Mode
+
+Enable debug logging by setting:
+```env
+DEBUG=1
+```
+
+## 📝 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📞 Support
+
+For support and questions:
+- Create an issue in the repository
+- Check the troubleshooting section
+- Review the deployment logs
