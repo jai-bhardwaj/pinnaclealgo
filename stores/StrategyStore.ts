@@ -1,5 +1,12 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { vanillaTrpc } from "@/lib/trpc/client";
+import {
+  classifyError,
+  reportError,
+  withRetry,
+  type AppError,
+  type ErrorContext,
+} from "@/stores/utils/errorHandler";
 import type {
   Strategy,
   StrategyWithCounts,
@@ -13,6 +20,7 @@ export class StrategyStore implements StoreState {
   isLoading = false;
   isSubmitting = false;
   error: string | null = null;
+  lastError: AppError | null = null;
 
   // Current strategy data
   currentStrategy: Strategy | null = null;
@@ -52,33 +60,60 @@ export class StrategyStore implements StoreState {
     this.error = error;
   }
 
-  clearError() {
-    this.error = null;
+  setAppError(error: AppError | null) {
+    this.lastError = error;
+    this.error = error?.message || null;
   }
 
-  // --- Actions using tRPC ---
+  clearError() {
+    this.error = null;
+    this.lastError = null;
+  }
+
+  // --- Actions using tRPC with proper error handling ---
 
   async fetchStrategies(userId: string) {
     this.setLoading(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      userId,
+      action: "fetchStrategies",
+      component: "StrategyStore",
+    };
+
     try {
-      const result = await vanillaTrpc.strategy.getByUserId.query({
-        userId,
-        pagination: {
-          page: this.strategiesPage,
-          limit: this.strategiesLimit,
-        },
-        filters: this.filters,
-      });
+      const result = await withRetry(
+        () =>
+          vanillaTrpc.strategy.getByUserId.query({
+            userId,
+            pagination: {
+              page: this.strategiesPage,
+              limit: this.strategiesLimit,
+            },
+            filters: this.filters,
+          }),
+        {
+          maxAttempts: 3,
+          onRetry: (attempt, error) => {
+            console.log(
+              `Retrying fetchStrategies (attempt ${attempt}):`,
+              error.message
+            );
+          },
+        }
+      );
+
       runInAction(() => {
         this.strategies = result.data;
         this.strategiesTotal = result.total;
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to fetch strategies:", error);
-        this.setError(error.message || "Failed to fetch strategies");
+        this.setAppError(appError);
       });
+      reportError(appError);
     } finally {
       runInAction(() => {
         this.setLoading(false);
@@ -88,18 +123,27 @@ export class StrategyStore implements StoreState {
 
   async startStrategy(id: string) {
     this.setSubmitting(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      action: "startStrategy",
+      component: "StrategyStore",
+      strategyId: id,
+    };
+
     try {
       const result = await vanillaTrpc.strategy.start.mutate({ id });
       runInAction(() => {
         console.log("Strategy started successfully:", result);
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to start strategy:", error);
-        this.setError(error.message || "Failed to start strategy");
+        this.setAppError(appError);
       });
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);
@@ -109,7 +153,15 @@ export class StrategyStore implements StoreState {
 
   async updateStrategy(id: string, data: Partial<Strategy>) {
     this.setSubmitting(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      action: "updateStrategy",
+      component: "StrategyStore",
+      strategyId: id,
+      updateFields: Object.keys(data),
+    };
+
     try {
       const filteredData = Object.entries(data).reduce((acc, [key, value]) => {
         if (value !== null && value !== undefined) {
@@ -122,18 +174,18 @@ export class StrategyStore implements StoreState {
         id,
         ...filteredData,
       });
+
       runInAction(() => {
         console.log("Strategy updated successfully:", updatedStrategy);
-        // Instead of manually transforming, just refresh the strategies list
-        // This ensures we get the correct type structure from the API
       });
       return updatedStrategy;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to update strategy:", error);
-        this.setError(error.message || "Failed to update strategy");
+        this.setAppError(appError);
       });
-      throw error;
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);
@@ -143,21 +195,27 @@ export class StrategyStore implements StoreState {
 
   async stopStrategy(id: string) {
     this.setSubmitting(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      action: "stopStrategy",
+      component: "StrategyStore",
+      strategyId: id,
+    };
+
     try {
-      // Use the vanilla tRPC client
       const result = await vanillaTrpc.strategy.stop.mutate({ id });
       runInAction(() => {
         console.log("Strategy stopped successfully:", result);
-        // this.fetchStrategies(); // Refresh the list after stopping
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to stop strategy:", error);
-        this.setError(error.message || "Failed to stop strategy");
+        this.setAppError(appError);
       });
-      throw error;
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);
@@ -167,21 +225,27 @@ export class StrategyStore implements StoreState {
 
   async pauseStrategy(id: string) {
     this.setSubmitting(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      action: "pauseStrategy",
+      component: "StrategyStore",
+      strategyId: id,
+    };
+
     try {
-      // Use the vanilla tRPC client
       const result = await vanillaTrpc.strategy.pause.mutate({ id });
       runInAction(() => {
         console.log("Strategy paused successfully:", result);
-        // this.fetchStrategies(); // Refresh the list after pausing
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to pause strategy:", error);
-        this.setError(error.message || "Failed to pause strategy");
+        this.setAppError(appError);
       });
-      throw error;
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);
@@ -191,24 +255,30 @@ export class StrategyStore implements StoreState {
 
   async bulkStopStrategies(strategyIds: string[]) {
     this.setSubmitting(true);
-    this.setError(null);
+    this.clearError();
+
+    const context: ErrorContext = {
+      action: "bulkStopStrategies",
+      component: "StrategyStore",
+      strategyCount: strategyIds.length,
+    };
+
     try {
-      // Use bulkUpdate procedure to stop multiple strategies
       const result = await vanillaTrpc.strategy.bulkUpdate.mutate({
         strategyIds,
         updateData: { isActive: false },
       });
       runInAction(() => {
         console.log("All strategies stopped successfully:", result);
-        // this.fetchStrategies(); // Refresh the list after bulk stop
       });
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
       runInAction(() => {
-        console.error("Failed to stop all strategies:", error);
-        this.setError(error.message || "Failed to stop all strategies");
+        this.setAppError(appError);
       });
-      throw error;
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);
