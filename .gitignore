@@ -41,4 +41,7 @@ yarn-error.log*
 next-env.d.ts
 node_modules
 
+# logs
+logs/
+
 /lib/generated/prisma

@@ -7,7 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest --watch"
+    "test": "jest --watch",
+    "pm2:prod": "./pm2-deploy.sh production",
+    "pm2:staging": "./pm2-deploy.sh staging",
+    "pm2:dev": "./pm2-deploy.sh development",
+    "pm2:setup": "./pm2-deploy.sh production setup",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -61,7 +70,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4.0.17",
+    "@tailwindcss/postcss": "^4.1.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
