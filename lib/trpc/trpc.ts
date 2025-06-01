@@ -1,8 +1,8 @@
-import { initTRPC } from '@trpc/server';
-import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
-import { prisma } from '@/services/prisma';
-import superjson from 'superjson';
-import { ZodError } from 'zod';
+import { initTRPC } from "@trpc/server";
+import { type FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
+import { prisma } from "@/services/prisma";
+import superjson from "superjson";
+import { ZodError } from "zod";
 
 /**
  * 1. CONTEXT
@@ -11,15 +11,15 @@ import { ZodError } from 'zod';
  * It's used to provide ingredients to your tRPC procedures.
  */
 export const createTRPCContext = async (opts: FetchCreateContextFnOptions) => {
-    const { req } = opts;
+  const { req } = opts;
 
-    // For now, we'll handle auth in middleware
-    // You can add session logic here later
-    return {
-        prisma,
-        req,
-        // session: null, // Add session logic here when NextAuth is properly configured
-    };
+  // For now, we'll handle auth in middleware
+  // You can add session logic here later
+  return {
+    prisma,
+    req,
+    // session: null, // Add session logic here when NextAuth is properly configured
+  };
 };
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
@@ -30,19 +30,17 @@ export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
  * This is where the tRPC API is initialized, connecting the context and router.
  */
 const t = initTRPC.context<typeof createTRPCContext>().create({
-    transformer: superjson,
-    errorFormatter({ shape, error }) {
-        return {
-            ...shape,
-            data: {
-                ...shape.data,
-                zodError:
-                    error.cause instanceof ZodError
-                        ? error.cause.flatten()
-                        : null,
-            },
-        };
-    },
+  transformer: superjson,
+  errorFormatter({ shape, error }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError:
+          error.cause instanceof ZodError ? error.cause.flatten() : null,
+      },
+    };
+  },
 });
 
 /**
@@ -68,12 +66,5 @@ export const publicProcedure = t.procedure;
 // Protected procedure (placeholder - add auth later)
 export const protectedProcedure = t.procedure;
 
-// Admin procedure (placeholder - add auth later)  
+// Admin procedure (placeholder - add auth later)
 export const adminProcedure = t.procedure;
-
-// Helper to get current user ID (placeholder)
-export const getCurrentUserId = (ctx: Context): string => {
-    // For now, return a mock user ID
-    // Replace this with actual session logic when auth is implemented
-    return 'mock-user-id';
-}; 

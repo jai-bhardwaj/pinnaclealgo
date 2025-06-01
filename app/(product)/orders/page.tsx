@@ -1,50 +1,52 @@
 "use client";
 
-import { useState } from 'react';
-import { useUser } from '@/contexts/user-context';
-import { trpc } from '@/lib/trpc/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { useState } from "react";
+import { useUser } from "@/contexts/user-context";
+import { trpc } from "@/lib/trpc/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator,
-    DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import {
-    Search,
-    Filter,
-    RefreshCw,
-    MoreHorizontal,
-    DollarSign, Clock,
-    CheckCircle,
-    XCircle,
-    AlertCircle,
-    Target, BarChart3,
-    Activity,
-    Plus,
-    Download,
-    Calendar
-} from 'lucide-react';
+  Search,
+  Filter,
+  RefreshCw,
+  MoreHorizontal,
+  IndianRupee,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Target,
+  BarChart3,
+  Activity,
+  Plus,
+  Download,
+  Calendar,
+} from "lucide-react";
 
 export default function OrdersPage() {
   const { user } = useUser();
@@ -53,11 +55,28 @@ export default function OrdersPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch orders with real tRPC data
-  const { data: ordersData, refetch: refetchOrders, isLoading } = trpc.order.getByUserId.useQuery(
-    { 
-      userId: user?.id || '',
+  const {
+    data: ordersData,
+    refetch: refetchOrders,
+    isLoading,
+  } = trpc.order.getByUserId.useQuery(
+    {
+      userId: user?.id || "",
       pagination: { page: 1, limit: 100 },
-      filters: statusFilter !== "all" ? { status: statusFilter as "ERROR" | "PENDING" | "PLACED" | "OPEN" | "COMPLETE" | "CANCELLED" | "REJECTED" | "UNKNOWN" } : {}
+      filters:
+        statusFilter !== "all"
+          ? {
+              status: statusFilter as
+                | "ERROR"
+                | "PENDING"
+                | "PLACED"
+                | "OPEN"
+                | "COMPLETE"
+                | "CANCELLED"
+                | "REJECTED"
+                | "UNKNOWN",
+            }
+          : {},
     },
     { enabled: !!user?.id }
   );
@@ -74,34 +93,63 @@ export default function OrdersPage() {
   };
 
   // Filter orders based on search query
-  const filteredOrders = orders.filter(order => 
-    order.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (order.brokerOrderId && order.brokerOrderId.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredOrders = orders.filter(
+    (order) =>
+      order.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.brokerOrderId &&
+        order.brokerOrderId.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Calculate summary statistics
   const totalOrders = filteredOrders.length;
-  const openOrders = filteredOrders.filter(order => order.status === 'OPEN').length;
-  const completedOrders = filteredOrders.filter(order => order.status === 'COMPLETE').length;
-  const cancelledOrders = filteredOrders.filter(order => order.status === 'CANCELLED').length;
-  const totalValue = filteredOrders.reduce((sum, order) => sum + (order.price || 0) * order.quantity, 0);
+  const openOrders = filteredOrders.filter(
+    (order) => order.status === "OPEN"
+  ).length;
+  const completedOrders = filteredOrders.filter(
+    (order) => order.status === "COMPLETE"
+  ).length;
+  const cancelledOrders = filteredOrders.filter(
+    (order) => order.status === "CANCELLED"
+  ).length;
+  const totalValue = filteredOrders.reduce(
+    (sum, order) => sum + (order.price || 0) * order.quantity,
+    0
+  );
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      OPEN: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
-      COMPLETE: { color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle },
-      CANCELLED: { color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
-      REJECTED: { color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
-      PENDING: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: AlertCircle },
-      PLACED: { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: Target },
+      OPEN: { color: "bg-blue-100 text-blue-800 border-blue-200", icon: Clock },
+      COMPLETE: {
+        color: "bg-green-100 text-green-800 border-green-200",
+        icon: CheckCircle,
+      },
+      CANCELLED: {
+        color: "bg-red-100 text-red-800 border-red-200",
+        icon: XCircle,
+      },
+      REJECTED: {
+        color: "bg-red-100 text-red-800 border-red-200",
+        icon: XCircle,
+      },
+      PENDING: {
+        color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+        icon: AlertCircle,
+      },
+      PLACED: {
+        color: "bg-purple-100 text-purple-800 border-purple-200",
+        icon: Target,
+      },
     };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
+
+    const config =
+      statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
     const Icon = config.icon;
-    
+
     return (
-      <Badge className={`${config.color} border flex items-center gap-1 font-medium`}>
+      <Badge
+        className={`${config.color} border flex items-center gap-1 font-medium`}
+      >
         <Icon className="h-3 w-3" />
         {status}
       </Badge>
@@ -110,10 +158,13 @@ export default function OrdersPage() {
 
   const getSideBadge = (side: string) => {
     return (
-      <Badge className={side === 'BUY' 
-        ? 'bg-green-100 text-green-800 border-green-200' 
-        : 'bg-red-100 text-red-800 border-red-200'
-      }>
+      <Badge
+        className={
+          side === "BUY"
+            ? "bg-green-100 text-green-800 border-green-200"
+            : "bg-red-100 text-red-800 border-red-200"
+        }
+      >
         {side}
       </Badge>
     );
@@ -125,7 +176,9 @@ export default function OrdersPage() {
         <Card className="p-8 text-center shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
           <CardContent>
             <AlertCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              Authentication Required
+            </h2>
             <p className="text-gray-600">Please log in to view your orders.</p>
           </CardContent>
         </Card>
@@ -136,7 +189,6 @@ export default function OrdersPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div className="space-y-2">
@@ -148,20 +200,24 @@ export default function OrdersPage() {
                 Orders
               </h1>
             </div>
-            <p className="text-gray-500">Manage and track your trading orders</p>
+            <p className="text-gray-500">
+              Manage and track your trading orders
+            </p>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <Button 
+            <Button
               onClick={handleRefresh}
               disabled={isRefreshing}
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
               <span>Refresh</span>
             </Button>
-            
+
             <Button className="bg-gray-900 hover:bg-gray-800 text-white">
               <Plus className="h-4 w-4 mr-2" />
               <span>New Order</span>
@@ -179,7 +235,9 @@ export default function OrdersPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-light text-gray-900">{totalOrders}</div>
+              <div className="text-2xl font-light text-gray-900">
+                {totalOrders}
+              </div>
               <p className="text-xs text-gray-500">All time orders</p>
             </CardContent>
           </Card>
@@ -192,7 +250,9 @@ export default function OrdersPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-light text-green-600">{completedOrders}</div>
+              <div className="text-2xl font-light text-green-600">
+                {completedOrders}
+              </div>
               <p className="text-xs text-gray-500">Successfully executed</p>
             </CardContent>
           </Card>
@@ -205,7 +265,9 @@ export default function OrdersPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-light text-orange-600">{openOrders}</div>
+              <div className="text-2xl font-light text-orange-600">
+                {openOrders}
+              </div>
               <p className="text-xs text-gray-500">Pending execution</p>
             </CardContent>
           </Card>
@@ -213,12 +275,14 @@ export default function OrdersPage() {
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <DollarSign className="h-4 w-4 mr-2" />
+                <IndianRupee className="h-4 w-4 mr-2" />
                 Total Value
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-light text-gray-900">₹{(totalValue / 100000).toFixed(1)}L</div>
+              <div className="text-2xl font-light text-gray-900">
+                ₹{(totalValue / 100000).toFixed(1)}L
+              </div>
               <p className="text-xs text-gray-500">Order value</p>
             </CardContent>
           </Card>
@@ -238,7 +302,7 @@ export default function OrdersPage() {
                     className="pl-10 w-full md:w-80 border-gray-300"
                   />
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <Filter className="h-4 w-4 text-gray-400" />
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -257,13 +321,16 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 <span>Export</span>
               </Button>
             </div>
           </CardHeader>
-          
+
           <CardContent>
             {isLoading ? (
               <div className="text-center py-12">
@@ -274,22 +341,42 @@ export default function OrdersPage() {
               <div className="text-center py-12">
                 <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg">No orders found</p>
-                <p className="text-gray-400 text-sm">Try adjusting your search or filters</p>
+                <p className="text-gray-400 text-sm">
+                  Try adjusting your search or filters
+                </p>
               </div>
             ) : (
               <div className="rounded-md border border-gray-200">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="font-medium text-gray-700">Order ID</TableHead>
-                      <TableHead className="font-medium text-gray-700">Symbol</TableHead>
-                      <TableHead className="font-medium text-gray-700">Type</TableHead>
-                      <TableHead className="font-medium text-gray-700">Side</TableHead>
-                      <TableHead className="font-medium text-gray-700">Quantity</TableHead>
-                      <TableHead className="font-medium text-gray-700">Price</TableHead>
-                      <TableHead className="font-medium text-gray-700">Status</TableHead>
-                      <TableHead className="font-medium text-gray-700">Created</TableHead>
-                      <TableHead className="font-medium text-gray-700 text-right">Actions</TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Order ID
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Symbol
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Type
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Side
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Quantity
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Price
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Status
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700">
+                        Created
+                      </TableHead>
+                      <TableHead className="font-medium text-gray-700 text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -297,7 +384,9 @@ export default function OrdersPage() {
                       <TableRow key={order.id} className="hover:bg-gray-50">
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
-                            <span className="text-sm text-gray-900">{order.id.slice(0, 8)}...</span>
+                            <span className="text-sm text-gray-900">
+                              {order.id.slice(0, 8)}...
+                            </span>
                             {order.brokerOrderId && (
                               <span className="text-xs text-gray-500">
                                 Broker: {order.brokerOrderId.slice(0, 8)}...
@@ -307,30 +396,42 @@ export default function OrdersPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium text-gray-900">{order.symbol}</span>
-                            <span className="text-xs text-gray-500">{order.exchange}</span>
+                            <span className="font-medium text-gray-900">
+                              {order.symbol}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {order.exchange}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-medium border-gray-300 text-gray-700">
+                          <Badge
+                            variant="outline"
+                            className="font-medium border-gray-300 text-gray-700"
+                          >
                             {order.orderType}
                           </Badge>
                         </TableCell>
                         <TableCell>{getSideBadge(order.side)}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="text-gray-900">{order.quantity}</span>
-                            {order.filledQuantity !== undefined && order.filledQuantity !== null && (
-                              <span className="text-xs text-gray-500">
-                                Filled: {order.filledQuantity}
-                              </span>
-                            )}
+                            <span className="text-gray-900">
+                              {order.quantity}
+                            </span>
+                            {order.filledQuantity !== undefined &&
+                              order.filledQuantity !== null && (
+                                <span className="text-xs text-gray-500">
+                                  Filled: {order.filledQuantity}
+                                </span>
+                              )}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center text-gray-700">
-                            <DollarSign className="h-3 w-3 mr-1" />
-                            {order.price ? `₹${order.price.toLocaleString()}` : 'Market'}
+                            <IndianRupee className="h-3 w-3 mr-1" />
+                            {order.price
+                              ? `₹${order.price.toLocaleString()}`
+                              : "Market"}
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>
@@ -345,7 +446,10 @@ export default function OrdersPage() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-gray-100">
+                              <Button
+                                variant="ghost"
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                              >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -353,7 +457,7 @@ export default function OrdersPage() {
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem>View Details</DropdownMenuItem>
-                              {order.status === 'OPEN' && (
+                              {order.status === "OPEN" && (
                                 <DropdownMenuItem className="text-red-600">
                                   Cancel Order
                                 </DropdownMenuItem>
@@ -373,4 +477,4 @@ export default function OrdersPage() {
       </div>
     </div>
   );
-} 
+}

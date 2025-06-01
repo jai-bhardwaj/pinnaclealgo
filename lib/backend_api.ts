@@ -1,15 +1,15 @@
-import { vanillaTrpc } from '@/lib/trpc/client';
-import type { RouterOutputs } from '@/lib/trpc/client';
+import { vanillaTrpc } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
 
 // Use the actual tRPC Strategy type but create an alias for the frontend
-export type Strategy = RouterOutputs['strategy']['getAll'][0];
-export type StrategyById = RouterOutputs['strategy']['getById'];
+export type Strategy = RouterOutputs["strategy"]["getAll"][0];
+export type StrategyById = RouterOutputs["strategy"]["getById"];
 
 // Update request interface
 export interface StrategyUpdateRequest {
   margin?: number;
-  marginType?: 'percentage' | 'rupees';
-  status?: 'active' | 'inactive';
+  marginType?: "percentage" | "rupees";
+  status?: "active" | "inactive";
   name?: string;
   description?: string;
   basePrice?: number;
@@ -27,10 +27,13 @@ function transformStrategy(strategy: any): Strategy {
     id: strategy.id,
     name: strategy.name,
     margin: strategy.margin || 5,
-    marginType: strategy.marginType || 'percentage',
+    marginType: strategy.marginType || "percentage",
     basePrice: strategy.basePrice || 50000,
-    status: strategy.status?.toLowerCase() === 'active' ? 'active' : 'inactive',
-    lastUpdated: strategy.updatedAt?.toLocaleDateString() || strategy.lastUpdated || new Date().toLocaleDateString(),
+    status: strategy.status?.toLowerCase() === "active" ? "active" : "inactive",
+    lastUpdated:
+      strategy.updatedAt?.toLocaleDateString() ||
+      strategy.lastUpdated ||
+      new Date().toLocaleDateString(),
     user_id: strategy.userId,
     description: strategy.description,
     strategyType: strategy.strategyType,
@@ -58,8 +61,10 @@ export const backendApi = {
         const strategies = await vanillaTrpc.strategy.getAll.query();
         return strategies.map(transformStrategy);
       } catch (error) {
-        console.error('Error fetching strategies:', error);
-        throw new Error('Failed to load strategies. Please check your connection and try again.');
+        console.error("Error fetching strategies:", error);
+        throw new Error(
+          "Failed to load strategies. Please check your connection and try again."
+        );
       }
     },
 
@@ -71,26 +76,28 @@ export const backendApi = {
         if (data.status) {
           updateData.status = data.status.toUpperCase(); // Convert to ACTIVE/INACTIVE for Prisma enum
         }
-        
+
         const updatedStrategy = await vanillaTrpc.strategy.update.mutate({
           id,
           ...updateData,
         });
         return transformStrategy(updatedStrategy);
       } catch (error) {
-        console.error('Error updating strategy:', error);
-        throw new Error('Failed to update strategy. Please try again.');
+        console.error("Error updating strategy:", error);
+        throw new Error("Failed to update strategy. Please try again.");
       }
     },
 
     // Square off a specific strategy
     async squareOff(strategyId: string): Promise<SquareOffResponse> {
       try {
-        const result = await vanillaTrpc.strategy.squareOff.mutate({ id: strategyId });
+        const result = await vanillaTrpc.strategy.squareOff.mutate({
+          id: strategyId,
+        });
         return result;
       } catch (error) {
-        console.error('Error squaring off strategy:', error);
-        throw new Error('Failed to square off strategy. Please try again.');
+        console.error("Error squaring off strategy:", error);
+        throw new Error("Failed to square off strategy. Please try again.");
       }
     },
 
@@ -100,8 +107,10 @@ export const backendApi = {
         const result = await vanillaTrpc.strategy.squareOffAll.mutate();
         return result;
       } catch (error) {
-        console.error('Error squaring off all strategies:', error);
-        throw new Error('Failed to square off all strategies. Please try again.');
+        console.error("Error squaring off all strategies:", error);
+        throw new Error(
+          "Failed to square off all strategies. Please try again."
+        );
       }
     },
 
@@ -111,8 +120,8 @@ export const backendApi = {
         const strategies = await vanillaTrpc.strategy.initialize.mutate();
         return strategies.map(transformStrategy);
       } catch (error) {
-        console.error('Error initializing strategies:', error);
-        throw new Error('Failed to initialize strategies. Please try again.');
+        console.error("Error initializing strategies:", error);
+        throw new Error("Failed to initialize strategies. Please try again.");
       }
     },
 
@@ -122,9 +131,9 @@ export const backendApi = {
       description?: string;
       strategyType: string;
       margin?: number;
-      marginType?: 'percentage' | 'rupees';
+      marginType?: "percentage" | "rupees";
       basePrice?: number;
-      status?: 'active' | 'inactive';
+      status?: "active" | "inactive";
       assetClass?: string;
       symbols?: string[];
       timeframe?: string;
@@ -135,21 +144,14 @@ export const backendApi = {
       capitalAllocated: number; // Make this required to fix the type error
     }): Promise<Strategy> {
       try {
-        // Convert frontend data to backend format
-        // Note: User ID should be extracted from the authenticated session on the backend
-        const backendData = {
-          ...strategyData,
-          // Remove hardcoded user connection - should be handled by backend auth
-          assetClass: strategyData.assetClass as any || 'EQUITY',
-          timeframe: strategyData.timeframe as any || 'MINUTE_5',
-          status: strategyData.status?.toUpperCase() as any || 'DRAFT',
-        };
-        
-        const newStrategy = await vanillaTrpc.strategy.create.mutate(backendData);
-        return newStrategy as unknown as Strategy;
+        // TODO: This function requires proper authentication implementation
+        // The user ID should be extracted from the authenticated session on the backend
+        throw new Error(
+          "Strategy creation requires proper authentication. Please implement session handling first."
+        );
       } catch (error) {
-        console.error('Error creating strategy:', error);
-        throw new Error('Failed to create strategy. Please try again.');
+        console.error("Error creating strategy:", error);
+        throw new Error("Failed to create strategy. Authentication required.");
       }
     },
 
@@ -159,56 +161,61 @@ export const backendApi = {
         await vanillaTrpc.strategy.remove.mutate({ id: strategyId });
         return { success: true };
       } catch (error) {
-        console.error('Error deleting strategy:', error);
-        throw new Error('Failed to delete strategy. Please try again.');
+        console.error("Error deleting strategy:", error);
+        throw new Error("Failed to delete strategy. Please try again.");
       }
     },
 
     // Get strategy by ID
     async getById(strategyId: string): Promise<Strategy> {
       try {
-        const strategy = await vanillaTrpc.strategy.getById.query({ id: strategyId });
+        const strategy = await vanillaTrpc.strategy.getById.query({
+          id: strategyId,
+        });
         return transformStrategy(strategy);
       } catch (error) {
-        console.error('Error fetching strategy:', error);
-        throw new Error('Failed to load strategy. Please try again.');
+        console.error("Error fetching strategy:", error);
+        throw new Error("Failed to load strategy. Please try again.");
       }
     },
 
     // Start a strategy
     async start(strategyId: string): Promise<Strategy> {
       try {
-        const strategy = await vanillaTrpc.strategy.start.mutate({ id: strategyId });
+        const strategy = await vanillaTrpc.strategy.start.mutate({
+          id: strategyId,
+        });
         return transformStrategy(strategy);
       } catch (error) {
-        console.error('Error starting strategy:', error);
-        throw new Error('Failed to start strategy. Please try again.');
+        console.error("Error starting strategy:", error);
+        throw new Error("Failed to start strategy. Please try again.");
       }
     },
 
     // Stop a strategy
     async stop(strategyId: string): Promise<Strategy> {
       try {
-        const strategy = await vanillaTrpc.strategy.stop.mutate({ id: strategyId });
+        const strategy = await vanillaTrpc.strategy.stop.mutate({
+          id: strategyId,
+        });
         return transformStrategy(strategy);
       } catch (error) {
-        console.error('Error stopping strategy:', error);
-        throw new Error('Failed to stop strategy. Please try again.');
+        console.error("Error stopping strategy:", error);
+        throw new Error("Failed to stop strategy. Please try again.");
       }
     },
 
     // Pause a strategy
     async pause(strategyId: string): Promise<Strategy> {
       try {
-        const strategy = await vanillaTrpc.strategy.pause.mutate({ id: strategyId });
+        const strategy = await vanillaTrpc.strategy.pause.mutate({
+          id: strategyId,
+        });
         return transformStrategy(strategy);
       } catch (error) {
-        console.error('Error pausing strategy:', error);
-        throw new Error('Failed to pause strategy. Please try again.');
+        console.error("Error pausing strategy:", error);
+        throw new Error("Failed to pause strategy. Please try again.");
       }
     },
   },
 };
-
-// Re-export the Strategy type for components to use
-export type { Strategy, StrategyUpdateRequest, SquareOffResponse }; 

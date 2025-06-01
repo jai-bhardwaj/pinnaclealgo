@@ -1,53 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Check, X, IndianRupee, Percent, RefreshCcw, AlertCircle } from "lucide-react";
+import { Check, X, IndianRupee, Percent, RefreshCcw } from "lucide-react";
 import { backendApi, type Strategy } from "@/lib/backend_api";
 
-// Mock data in case the server is unreachable
-const MOCK_STRATEGIES: Strategy[] = [
-  {
-    id: "mock-1",
-    name: "NIFTY Swing Strategy (Demo)",
-    margin: 5,
-    marginType: "percentage",
-    basePrice: 24000,
-    status: "inactive",
-    lastUpdated: new Date().toLocaleDateString(),
-    user_id: "mock-user"
-  },
-  {
-    id: "mock-2",
-    name: "Option Scalping Strategy (Demo)",
-    margin: 2500,
-    marginType: "rupees",
-    basePrice: 50000,
-    status: "inactive",
-    lastUpdated: new Date().toLocaleDateString(),
-    user_id: "mock-user"
-  },
-];
-
 export function StrategyTable() {
-  const { data: session } = useSession();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [editingMargin, setEditingMargin] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -55,7 +29,6 @@ export function StrategyTable() {
   const [squareOffAllLoading, setSquareOffAllLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [useMockData, setUseMockData] = useState(false);
 
   const fetchStrategies = async () => {
     try {
@@ -63,30 +36,19 @@ export function StrategyTable() {
       const data = await backendApi.strategies.getAll();
       setStrategies(data);
       setError(null);
-      setUseMockData(false);
     } catch (err) {
       console.error("Error fetching strategies:", err);
-      setError(err instanceof Error ? err.message : "Failed to load strategies");
-
-      // After API fails, allow using mock data
-      setUseMockData(true);
+      setError(
+        err instanceof Error ? err.message : "Failed to load strategies"
+      );
     } finally {
       setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    if (session?.user?.access_token || session?.user) {
-      fetchStrategies();
-    }
-  }, [session]);
-
-  const useMockDataNow = () => {
-    setStrategies(MOCK_STRATEGIES);
-    setError(null);
-    setMessage("Using demo data. Backend connection is not available.");
-    setUseMockData(false);
-  };
+    fetchStrategies();
+  }, []);
 
   const formatMargin = (strategy: Strategy) => {
     const formattedValue = new Intl.NumberFormat("en-IN", {
@@ -108,7 +70,9 @@ export function StrategyTable() {
       return `₹${inRupees.toFixed(2)} (${value}% of ₹${strategy.basePrice})`;
     } else {
       const inPercentage = (value * 100) / strategy.basePrice;
-      return `${inPercentage.toFixed(2)}% (₹${value} of ₹${strategy.basePrice})`;
+      return `${inPercentage.toFixed(2)}% (₹${value} of ₹${
+        strategy.basePrice
+      })`;
     }
   };
 
@@ -126,7 +90,12 @@ export function StrategyTable() {
 
       setStrategies((prev) =>
         prev.map((strategy) =>
-          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+          strategy.id === id
+            ? {
+                ...updatedStrategy,
+                lastUpdated: new Date().toLocaleDateString(),
+              }
+            : strategy
         )
       );
       setError(null);
@@ -144,10 +113,12 @@ export function StrategyTable() {
     const strategy = strategies.find((s) => s.id === id);
     if (!strategy) return;
 
-    const newType = strategy.marginType === "percentage" ? "rupees" : "percentage";
-    const newMargin = strategy.marginType === "percentage"
-      ? parseFloat(((strategy.margin * strategy.basePrice) / 100).toFixed(2))
-      : parseFloat(((strategy.margin * 100) / strategy.basePrice).toFixed(2));
+    const newType: "percentage" | "rupees" =
+      strategy.marginType === "percentage" ? "rupees" : "percentage";
+    const newMargin =
+      strategy.marginType === "percentage"
+        ? parseFloat(((strategy.margin * strategy.basePrice) / 100).toFixed(2))
+        : parseFloat(((strategy.margin * 100) / strategy.basePrice).toFixed(2));
 
     try {
       const updatedStrategy = await backendApi.strategies.update(id, {
@@ -157,7 +128,12 @@ export function StrategyTable() {
 
       setStrategies((prev) =>
         prev.map((strategy) =>
-          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+          strategy.id === id
+            ? {
+                ...updatedStrategy,
+                lastUpdated: new Date().toLocaleDateString(),
+              }
+            : strategy
         )
       );
       setError(null);
@@ -180,7 +156,12 @@ export function StrategyTable() {
 
       setStrategies((prev) =>
         prev.map((strategy) =>
-          strategy.id === id ? { ...updatedStrategy, lastUpdated: new Date().toLocaleDateString() } : strategy
+          strategy.id === id
+            ? {
+                ...updatedStrategy,
+                lastUpdated: new Date().toLocaleDateString(),
+              }
+            : strategy
         )
       );
       setError(null);
@@ -295,21 +276,33 @@ export function StrategyTable() {
                           className="w-20 h-8 text-sm"
                           autoFocus
                           onBlur={(e) => {
-                            handleMarginChange(
-                              strategy.id,
-                              e.target.value,
-                              strategy.marginType
-                            );
+                            const marginType = strategy.marginType;
+                            if (
+                              marginType === "percentage" ||
+                              marginType === "rupees"
+                            ) {
+                              handleMarginChange(
+                                strategy.id,
+                                e.target.value,
+                                marginType
+                              );
+                            }
                             handleMarginBlur();
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               const input = e.target as HTMLInputElement;
-                              handleMarginChange(
-                                strategy.id,
-                                input.value,
-                                strategy.marginType
-                              );
+                              const marginType = strategy.marginType;
+                              if (
+                                marginType === "percentage" ||
+                                marginType === "rupees"
+                              ) {
+                                handleMarginChange(
+                                  strategy.id,
+                                  input.value,
+                                  marginType
+                                );
+                              }
                               handleMarginBlur();
                             }
                           }}
@@ -353,8 +346,11 @@ export function StrategyTable() {
                       variant={
                         strategy.status === "active" ? "default" : "secondary"
                       }
-                      className={`cursor-pointer hover:opacity-80 ${strategy.status === "active" ? "bg-green-100 text-green-800 hover:bg-green-200" : ""
-                        }`}
+                      className={`cursor-pointer hover:opacity-80 ${
+                        strategy.status === "active"
+                          ? "bg-green-100 text-green-800 hover:bg-green-200"
+                          : ""
+                      }`}
                       onClick={() => handleStatusChange(strategy.id)}
                     >
                       {strategy.status === "active" ? (
@@ -387,7 +383,9 @@ export function StrategyTable() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-6">
                     <div className="flex flex-col items-center space-y-2">
-                      <p className="text-muted-foreground">No strategies found</p>
+                      <p className="text-muted-foreground">
+                        No strategies found
+                      </p>
                       <Button
                         onClick={async () => {
                           setIsRefreshing(true);
@@ -426,27 +424,13 @@ export function StrategyTable() {
                   <TableCell colSpan={5} className="text-center py-6">
                     <div className="flex flex-col items-center space-y-2">
                       <p className="text-red-600">{error}</p>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleRefreshData}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Retry Connection
-                        </Button>
-
-                        {useMockData && (
-                          <Button
-                            onClick={useMockDataNow}
-                            variant="default"
-                            size="sm"
-                            className="gap-1"
-                          >
-                            <AlertCircle className="h-4 w-4" />
-                            Use Demo Data
-                          </Button>
-                        )}
-                      </div>
+                      <Button
+                        onClick={handleRefreshData}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Retry Connection
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -457,4 +441,4 @@ export function StrategyTable() {
       </div>
     </TooltipProvider>
   );
-} 
+}
