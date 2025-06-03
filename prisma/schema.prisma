@@ -378,6 +378,9 @@ model Order {
   filledQuantity    Int         @default(0)
   averagePrice      Float?
   
+  // Order Relationships
+  parentOrderId     String?     // For bracket orders, modifications, etc.
+  
   // Metadata
   tags              String[]    // Custom tags
   notes             String?
@@ -393,6 +396,8 @@ model Order {
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   strategy          Strategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
   trades            Trade[]
+  parentOrder       Order?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
+  childOrders       Order[]     @relation("OrderHierarchy")
 
   @@map("orders")
 }
