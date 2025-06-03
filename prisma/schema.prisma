@@ -1,6 +1,6 @@
-// This is your updated Prisma schema file
-// Aligned with the trading engine implementation
-// Updated: 2025-06-01
+// Live Trading Engine Database Schema
+// Optimized for production live trading only
+// Updated: 2025-06-03
 
 generator client {
   provider = "prisma-client-js"
@@ -12,20 +12,18 @@ datasource db {
 }
 
 // ============================================================================
-// USER MANAGEMENT & AUTHENTICATION
+// USER MANAGEMENT (SIMPLIFIED)
 // ============================================================================
 
 enum UserRole {
-  USER          // Regular trading user
-  ADMIN         // System administrator
-  SUPER_ADMIN   // Super administrator with full access
+  USER
+  ADMIN
 }
 
 enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
-  PENDING_VERIFICATION
 }
 
 model User {
@@ -37,14 +35,8 @@ model User {
   lastName          String?
   phone             String?
   role              UserRole   @default(USER)
-  status            UserStatus @default(PENDING_VERIFICATION)
+  status            UserStatus @default(ACTIVE)
   emailVerified     Boolean    @default(false)
-  phoneVerified     Boolean    @default(false)
-  twoFactorEnabled  Boolean    @default(false)
-  twoFactorSecret   String?
-  lastLoginAt       DateTime?
-  loginAttempts     Int        @default(0)
-  lockedUntil       DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -52,17 +44,17 @@ model User {
   profile           UserProfile?
   brokerConfigs     BrokerConfig[]
   strategies        Strategy[]
+  strategyConfigs   StrategyConfig[]
   orders            Order[]
   trades            Trade[]
   positions         Position[]
   balance           Balance?
   riskProfile       RiskProfile?
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  sessions          UserSession[]
-  apiKeys           ApiKey[]
   watchlists        Watchlist[]
-  alerts            Alert[]
+  notifications     Notification[]
+  notificationSettings NotificationSettings?
+  auditLogs         AuditLog[]
+  alertTemplates    AlertTemplate[]
 
   @@map("users")
 }
@@ -71,12 +63,9 @@ model UserProfile {
   id                String   @id @default(cuid())
   userId            String   @unique
   avatar            String?
-  bio               String?
   timezone          String   @default("UTC")
-  language          String   @default("en")
   tradingExperience String?  // BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
   riskTolerance     String?  // LOW, MEDIUM, HIGH
-  investmentGoals   String?
   preferredAssets   String[] // Array of asset classes
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -84,37 +73,6 @@ model UserProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
-}
-
-model UserSession {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  ipAddress String?
-  userAgent String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_sessions")
-}
-
-model ApiKey {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  keyHash     String   @unique
-  permissions String[] // Array of permissions
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("api_keys")
 }
 
 // ============================================================================
@@ -190,7 +148,7 @@ model RiskProfile {
 }
 
 // ============================================================================
-// ALGORITHMIC TRADING STRATEGIES
+// TRADING STRATEGIES
 // ============================================================================
 
 enum StrategyStatus {
@@ -199,7 +157,6 @@ enum StrategyStatus {
   PAUSED
   STOPPED
   ERROR
-  BACKTESTING
 }
 
 enum AssetClass {
@@ -232,20 +189,19 @@ model Strategy {
   userId            String
   name              String
   description       String?
-  strategyType      String         // mean_reversion, momentum, grid_trading, etc.
+  strategyType      String         // momentum, mean_reversion, breakout, etc.
   assetClass        AssetClass
   symbols           String[]       // Array of symbols to trade
   timeframe         TimeFrame
   status            StrategyStatus @default(DRAFT)
   
-  // Strategy Parameters (JSON)
+  // Strategy Parameters
   parameters        Json           // Strategy-specific parameters
   riskParameters    Json           // Risk management parameters
   
-  // Margin and Trading Configuration (Updated)
-  margin            Float          @default(5.0)     // Margin amount (percentage or rupees)
-  marginType        String         @default("percentage") // "percentage" or "rupees"  
-  basePrice         Float          @default(50000.0) // Base price for percentage calculations
+  // Trading Configuration
+  maxPositions      Int            @default(5)
+  capitalAllocated  Float          @default(100000) // ₹1,00,000
   
   // Performance Metrics
   totalPnl          Float          @default(0)
@@ -253,14 +209,7 @@ model Strategy {
   winningTrades     Int            @default(0)
   losingTrades      Int            @default(0)
   winRate           Float          @default(0)
-  sharpeRatio       Float?
   maxDrawdown       Float          @default(0)
-  
-  // Execution Settings
-  isLive            Boolean        @default(false)
-  isPaperTrading    Boolean        @default(true)
-  maxPositions      Int            @default(5)
-  capitalAllocated  Float          @default(100000) // ₹1,00,000
   
   // Scheduling
   startTime         String?        // HH:MM format
@@ -270,47 +219,16 @@ model Strategy {
   // Metadata
   version           Int            @default(1)
   lastExecutedAt    DateTime?
-  nextExecutionAt   DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
   // Relations
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders            Order[]
-  backtests         Backtest[]
+  strategyConfigs   StrategyConfig[]
   strategyLogs      StrategyLog[]
 
   @@map("strategies")
-}
-
-model Backtest {
-  id            String   @id @default(cuid())
-  strategyId    String
-  name          String
-  startDate     DateTime
-  endDate       DateTime
-  initialCapital Float
-  
-  // Results
-  finalCapital  Float
-  totalReturn   Float
-  annualReturn  Float
-  sharpeRatio   Float
-  maxDrawdown   Float
-  totalTrades   Int
-  winRate       Float
-  
-  // Detailed Results (JSON)
-  trades        Json     // Array of trade details
-  metrics       Json     // Detailed performance metrics
-  
-  status        String   @default("RUNNING") // RUNNING, COMPLETED, FAILED
-  createdAt     DateTime @default(now())
-  completedAt   DateTime?
-
-  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-
-  @@map("backtests")
 }
 
 model StrategyLog {
@@ -327,7 +245,86 @@ model StrategyLog {
 }
 
 // ============================================================================
-// ORDERS & TRADES
+// ENHANCED STRATEGY EXECUTION
+// ============================================================================
+
+enum StrategyConfigStatus {
+  ACTIVE
+  STOPPED
+  ERROR
+  PAUSED
+}
+
+enum StrategyCommandType {
+  START
+  STOP
+  RESTART
+  PAUSE
+  RESUME
+  UPDATE_CONFIG
+}
+
+enum CommandStatus {
+  PENDING
+  EXECUTED
+  FAILED
+}
+
+model StrategyConfig {
+  id                String                @id @default(cuid())
+  userId            String
+  strategyId        String?               // Link to existing Strategy model
+  name              String                @unique
+  className         String                // Python class name
+  modulePath        String                // Python module path
+  configJson        Json                  // Configuration for the strategy
+  status            StrategyConfigStatus  @default(ACTIVE)
+  autoStart         Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy          Strategy?             @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  commands          StrategyCommand[]
+  metrics           StrategyMetric[]
+
+  @@map("strategy_configs")
+}
+
+model StrategyCommand {
+  id                String                @id @default(cuid())
+  strategyConfigId  String
+  command           StrategyCommandType
+  parameters        Json?
+  status            CommandStatus         @default(PENDING)
+  createdAt         DateTime              @default(now())
+  executedAt        DateTime?
+
+  // Relations
+  strategyConfig    StrategyConfig        @relation(fields: [strategyConfigId], references: [id], onDelete: Cascade)
+
+  @@map("strategy_commands")
+}
+
+model StrategyMetric {
+  id                String                @id @default(cuid())
+  strategyConfigId  String
+  timestamp         DateTime              @default(now())
+  pnl               Decimal               @default(0)
+  positionsCount    Int                   @default(0)
+  ordersCount       Int                   @default(0)
+  successRate       Decimal               @default(0)
+  metricsJson       Json?
+
+  // Relations
+  strategyConfig    StrategyConfig        @relation(fields: [strategyConfigId], references: [id], onDelete: Cascade)
+
+  @@map("strategy_metrics")
+}
+
+// ============================================================================
+// ORDERS & TRADES (LIVE ONLY)
 // ============================================================================
 
 enum OrderSide {
@@ -346,22 +343,16 @@ enum ProductType {
   DELIVERY
   INTRADAY
   MARGIN
-  NORMAL
-  CARRYFORWARD
-  BO        // Bracket Order
-  CO        // Cover Order
 }
 
 enum OrderStatus {
   PENDING
-  QUEUED    // Added for Redis queue processing
   PLACED
   OPEN
   COMPLETE
   CANCELLED
   REJECTED
   ERROR
-  UNKNOWN
 }
 
 model Order {
@@ -376,9 +367,9 @@ model Order {
   orderType         OrderType
   productType       ProductType
   quantity          Int
-  price             Float?      // Made nullable to match implementation
+  price             Float?
   triggerPrice      Float?
-  variety           String      @default("NORMAL")
+  variety           String      @default("NORMAL")  // NORMAL, AMO, BO, CO, ICEBERG
   
   // Execution Details
   brokerOrderId     String?
@@ -388,8 +379,6 @@ model Order {
   averagePrice      Float?
   
   // Metadata
-  isPaperTrade      Boolean     @default(false)
-  parentOrderId     String?     // For bracket/cover orders
   tags              String[]    // Custom tags
   notes             String?
   
@@ -404,8 +393,6 @@ model Order {
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   strategy          Strategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
   trades            Trade[]
-  parentOrder       Order?      @relation("OrderHierarchy", fields: [parentOrderId], references: [id])
-  childOrders       Order[]     @relation("OrderHierarchy")
 
   @@map("orders")
 }
@@ -553,17 +540,18 @@ model MarketData {
 }
 
 // ============================================================================
-// NOTIFICATIONS & ALERTS
+// NOTIFICATIONS & ALERTS (HYBRID APPROACH)
 // ============================================================================
 
 enum NotificationType {
-  ORDER_EXECUTED
-  ORDER_CANCELLED
-  STRATEGY_STARTED
-  STRATEGY_STOPPED
+  // Critical notifications (stored in DB)
   RISK_VIOLATION
-  SYSTEM_ALERT
-  PRICE_ALERT
+  ACCOUNT_SECURITY
+  REGULATORY_NOTICE
+  SYSTEM_MAINTENANCE
+  STRATEGY_PERFORMANCE_SUMMARY
+  ACCOUNT_STATEMENT
+  COMPLIANCE_ALERT
 }
 
 enum NotificationStatus {
@@ -572,6 +560,7 @@ enum NotificationStatus {
   ARCHIVED
 }
 
+// Only critical notifications stored in database
 model Notification {
   id        String             @id @default(cuid())
   userId    String
@@ -580,6 +569,7 @@ model Notification {
   message   String
   data      Json?              // Additional notification data
   status    NotificationStatus @default(UNREAD)
+  expiresAt DateTime?          // Optional expiration
   createdAt DateTime           @default(now())
   readAt    DateTime?
 
@@ -588,26 +578,62 @@ model Notification {
   @@map("notifications")
 }
 
-model Alert {
+// User notification preferences
+model NotificationSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  
+  // Real-time alerts (Redis-based)
+  orderExecution    Boolean  @default(true)
+  strategyStatus    Boolean  @default(true)
+  priceAlerts       Boolean  @default(true)
+  riskViolations    Boolean  @default(true)
+  
+  // SMS alerts (critical only)
+  smsRiskViolations Boolean  @default(true)
+  smsOrderFailures  Boolean  @default(true)
+  smsAccountSecurity Boolean @default(true)
+  smsSystemDowntime Boolean  @default(true)
+  
+  // Email notifications
+  emailDailySummary    Boolean @default(false)
+  emailWeeklyReport    Boolean @default(true)
+  emailMonthlyStatement Boolean @default(true)
+  emailRegulatory      Boolean @default(true)
+  
+  // Alert frequency controls
+  maxAlertsPerMinute   Int     @default(10)
+  quietHoursStart      String? // HH:MM format
+  quietHoursEnd        String? // HH:MM format
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+// Price/Volume alerts (metadata only - actual processing in Redis)
+model AlertTemplate {
   id          String   @id @default(cuid())
   userId      String
+  name        String   // User-friendly name
   symbol      String
   exchange    String
-  condition   String   // ABOVE, BELOW, CROSSES_ABOVE, CROSSES_BELOW
-  targetPrice Float
+  condition   String   // JSON condition for Redis processing
+  message     String?  // Custom alert message
   isActive    Boolean  @default(true)
-  isTriggered Boolean  @default(false)
-  triggeredAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("alerts")
+  @@map("alert_templates")
 }
 
 // ============================================================================
-// SYSTEM & AUDIT
+// AUDIT & COMPLIANCE
 // ============================================================================
 
 enum AuditAction {
@@ -615,21 +641,25 @@ enum AuditAction {
   LOGOUT
   ORDER_PLACED
   ORDER_CANCELLED
-  STRATEGY_CREATED
-  STRATEGY_UPDATED
+  ORDER_MODIFIED
   STRATEGY_STARTED
   STRATEGY_STOPPED
-  SETTINGS_CHANGED
-  PASSWORD_CHANGED
-  API_KEY_CREATED
-  API_KEY_DELETED
+  STRATEGY_CREATED
+  STRATEGY_UPDATED
+  STRATEGY_DELETED
+  POSITION_OPENED
+  POSITION_CLOSED
+  RISK_LIMIT_CHANGED
+  BROKER_CONNECTED
+  BROKER_DISCONNECTED
+  SYSTEM_ERROR
 }
 
 model AuditLog {
   id          String      @id @default(cuid())
   userId      String?
   action      AuditAction
-  resource    String?     // Resource affected (order_id, strategy_id, etc.)
+  resource    String?     // Resource ID (order_id, strategy_id, etc.)
   details     Json?       // Additional details
   ipAddress   String?
   userAgent   String?
@@ -640,12 +670,16 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// ============================================================================
+// SYSTEM CONFIGURATION
+// ============================================================================
+
 model SystemConfig {
   id          String   @id @default(cuid())
   key         String   @unique
   value       String
   description String?
-  isPublic    Boolean  @default(false) // Whether config is visible to users
+  isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
