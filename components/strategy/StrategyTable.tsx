@@ -9,21 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Check, X, IndianRupee, Percent, RefreshCcw } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Check, X, RefreshCcw } from "lucide-react";
 import { backendApi, type Strategy } from "@/lib/backend_api";
 
 export function StrategyTable() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [editingMargin, setEditingMargin] = useState<string | null>(null);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [squareOffLoading, setSquareOffLoading] = useState<string | null>(null);
   const [squareOffAllLoading, setSquareOffAllLoading] = useState(false);
@@ -38,9 +32,7 @@ export function StrategyTable() {
       setError(null);
     } catch (err) {
       console.error("Error fetching strategies:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load strategies"
-      );
+      setError("Failed to load strategies");
     } finally {
       setIsRefreshing(false);
     }
@@ -49,99 +41,6 @@ export function StrategyTable() {
   useEffect(() => {
     fetchStrategies();
   }, []);
-
-  const formatMargin = (strategy: Strategy) => {
-    const formattedValue = new Intl.NumberFormat("en-IN", {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 0,
-    }).format(strategy.margin);
-
-    if (strategy.marginType === "percentage") {
-      return `${formattedValue}%`;
-    } else {
-      return `₹${formattedValue}`;
-    }
-  };
-
-  const getMarginTooltip = (strategy: Strategy) => {
-    const value = strategy.margin;
-    if (strategy.marginType === "percentage") {
-      const inRupees = (value * strategy.basePrice) / 100;
-      return `₹${inRupees.toFixed(2)} (${value}% of ₹${strategy.basePrice})`;
-    } else {
-      const inPercentage = (value * 100) / strategy.basePrice;
-      return `${inPercentage.toFixed(2)}% (₹${value} of ₹${
-        strategy.basePrice
-      })`;
-    }
-  };
-
-  const handleMarginChange = async (
-    id: string,
-    value: string,
-    type: "percentage" | "rupees"
-  ) => {
-    const numValue = parseFloat(value) || 0;
-    try {
-      const updatedStrategy = await backendApi.strategies.update(id, {
-        margin: numValue,
-        marginType: type,
-      });
-
-      setStrategies((prev) =>
-        prev.map((strategy) =>
-          strategy.id === id
-            ? {
-                ...updatedStrategy,
-                lastUpdated: new Date().toLocaleDateString(),
-              }
-            : strategy
-        )
-      );
-      setError(null);
-    } catch (err) {
-      console.error("Error updating strategy:", err);
-      setError("Failed to update strategy");
-    }
-  };
-
-  const handleMarginBlur = () => {
-    setEditingMargin(null);
-  };
-
-  const toggleMarginType = async (id: string) => {
-    const strategy = strategies.find((s) => s.id === id);
-    if (!strategy) return;
-
-    const newType: "percentage" | "rupees" =
-      strategy.marginType === "percentage" ? "rupees" : "percentage";
-    const newMargin =
-      strategy.marginType === "percentage"
-        ? parseFloat(((strategy.margin * strategy.basePrice) / 100).toFixed(2))
-        : parseFloat(((strategy.margin * 100) / strategy.basePrice).toFixed(2));
-
-    try {
-      const updatedStrategy = await backendApi.strategies.update(id, {
-        margin: newMargin,
-        marginType: newType,
-      });
-
-      setStrategies((prev) =>
-        prev.map((strategy) =>
-          strategy.id === id
-            ? {
-                ...updatedStrategy,
-                lastUpdated: new Date().toLocaleDateString(),
-              }
-            : strategy
-        )
-      );
-      setError(null);
-    } catch (err) {
-      console.error("Error updating strategy:", err);
-      setError("Failed to update strategy");
-    }
-  };
 
   const handleStatusChange = async (id: string) => {
     const strategy = strategies.find((s) => s.id === id);
@@ -174,7 +73,6 @@ export function StrategyTable() {
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await fetchStrategies();
-    setEditingMargin(null);
     setIsRefreshing(false);
   };
 
@@ -257,7 +155,6 @@ export function StrategyTable() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-[300px]">Strategy Name</TableHead>
-                <TableHead>Margin</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -267,80 +164,6 @@ export function StrategyTable() {
               {strategies.map((strategy) => (
                 <TableRow key={strategy.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{strategy.name}</TableCell>
-                  <TableCell>
-                    {editingMargin === strategy.id ? (
-                      <div className="inline-flex items-center space-x-1">
-                        <Input
-                          type="number"
-                          defaultValue={strategy.margin.toString()}
-                          className="w-20 h-8 text-sm"
-                          autoFocus
-                          onBlur={(e) => {
-                            const marginType = strategy.marginType;
-                            if (
-                              marginType === "percentage" ||
-                              marginType === "rupees"
-                            ) {
-                              handleMarginChange(
-                                strategy.id,
-                                e.target.value,
-                                marginType
-                              );
-                            }
-                            handleMarginBlur();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const input = e.target as HTMLInputElement;
-                              const marginType = strategy.marginType;
-                              if (
-                                marginType === "percentage" ||
-                                marginType === "rupees"
-                              ) {
-                                handleMarginChange(
-                                  strategy.id,
-                                  input.value,
-                                  marginType
-                                );
-                              }
-                              handleMarginBlur();
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={() => toggleMarginType(strategy.id)}
-                          className="text-muted-foreground"
-                        >
-                          {strategy.marginType === "percentage" ? (
-                            <Percent className="h-4 w-4" />
-                          ) : (
-                            <IndianRupee className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className="flex items-center space-x-1 hover:underline"
-                            onClick={() => setEditingMargin(strategy.id)}
-                          >
-                            <span>{formatMargin(strategy)}</span>
-                            <span className="text-muted-foreground">
-                              {strategy.marginType === "percentage" ? (
-                                <Percent className="h-3 w-3" />
-                              ) : (
-                                <IndianRupee className="h-3 w-3" />
-                              )}
-                            </span>
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{getMarginTooltip(strategy)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -381,7 +204,7 @@ export function StrategyTable() {
               ))}
               {strategies.length === 0 && !error && !isRefreshing && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6">
+                  <TableCell colSpan={4} className="text-center py-6">
                     <div className="flex flex-col items-center space-y-2">
                       <p className="text-muted-foreground">
                         No strategies found
@@ -411,7 +234,7 @@ export function StrategyTable() {
               )}
               {isRefreshing && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6">
+                  <TableCell colSpan={4} className="text-center py-6">
                     <div className="flex items-center justify-center space-x-2">
                       <RefreshCcw className="h-4 w-4 animate-spin" />
                       <span>Loading strategies...</span>
@@ -421,7 +244,7 @@ export function StrategyTable() {
               )}
               {error && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6">
+                  <TableCell colSpan={4} className="text-center py-6">
                     <div className="flex flex-col items-center space-y-2">
                       <p className="text-red-600">{error}</p>
                       <Button

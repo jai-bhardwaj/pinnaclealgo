@@ -47,6 +47,7 @@ import {
   Download,
   Calendar,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export default function OrdersPage() {
   const { user } = useUser();
@@ -439,7 +440,7 @@ export default function OrdersPage() {
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1 text-gray-400" />
                             <span className="text-sm text-gray-700">
-                              {new Date(order.createdAt).toLocaleDateString()}
+                              {formatDate(order.createdAt)}
                             </span>
                           </div>
                         </TableCell>

@@ -78,7 +78,7 @@ import {
   Zap,
 } from "lucide-react";
 import { type StrategyWithCounts } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -126,14 +126,7 @@ AssetBadge.displayName = "AssetBadge";
 const editStrategySchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  status: z.enum([
-    "ACTIVE",
-    "PAUSED",
-    "STOPPED",
-    "DRAFT",
-    "ERROR",
-    "BACKTESTING",
-  ]),
+  status: z.enum(["ACTIVE", "PAUSED", "STOPPED", "DRAFT", "ERROR"]),
   strategyType: z.string().min(1, "Strategy type is required"),
   assetClass: z.enum([
     "EQUITY",
@@ -674,9 +667,7 @@ const StrategyTableComponent: React.FC<StrategyTableProps> = ({
                                       <div className="text-sm font-semibold text-gray-900 flex items-center justify-center">
                                         <Clock className="h-3 w-3 mr-1" />
                                         <span>
-                                          {new Date(
-                                            strategy.updatedAt
-                                          ).toLocaleDateString()}
+                                          {formatDate(strategy.updatedAt)}
                                         </span>
                                       </div>
                                       <div className="text-xs text-gray-600">
@@ -764,9 +755,7 @@ const StrategyTableComponent: React.FC<StrategyTableProps> = ({
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1 text-gray-400" />
                             <span className="text-sm text-gray-700">
-                              {new Date(
-                                strategy.updatedAt
-                              ).toLocaleDateString()}
+                              {formatDate(strategy.updatedAt)}
                             </span>
                           </div>
                         </TableCell>
@@ -909,9 +898,6 @@ const StrategyTableComponent: React.FC<StrategyTableProps> = ({
                           <SelectItem value="PAUSED">Paused</SelectItem>
                           <SelectItem value="STOPPED">Stopped</SelectItem>
                           <SelectItem value="DRAFT">Draft</SelectItem>
-                          <SelectItem value="BACKTESTING">
-                            Backtesting
-                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

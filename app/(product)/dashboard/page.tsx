@@ -1,25 +1,30 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { trpc } from '@/lib/trpc/client';
-import { useUser } from '@/contexts/user-context';
-import type { DashboardStats } from '@/types';
+import { useState, useEffect } from "react";
+import { useStores } from "@/stores";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { trpc } from "@/lib/trpc/client";
+import { useUser } from "@/contexts/user-context";
+import type { DashboardStats } from "@/types";
 import {
   TrendingUp,
-  TrendingDown, Activity,
+  TrendingDown,
+  Activity,
   BarChart3,
   Target,
   Zap,
   Shield,
   Clock,
-  RefreshCw, Wallet,
-  Calendar, PieChart
-} from 'lucide-react';
+  RefreshCw,
+  Wallet,
+  Calendar,
+  PieChart,
+} from "lucide-react";
 
 export default function DashboardPage() {
+  const { portfolioStore, strategyStore, orderStore } = useStores();
   const { user } = useUser();
   const [stats, setStats] = useState<DashboardStats>({
     totalBalance: 0,
@@ -28,54 +33,77 @@ export default function DashboardPage() {
     openOrders: 0,
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  // Initialize current time on client side only to prevent hydration mismatch
+  useEffect(() => {
+    setCurrentTime(new Date());
+
+    // Update time every minute
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch comprehensive dashboard data with real tRPC calls
-  const { data: balance, refetch: refetchBalance, isLoading: balanceLoading } = trpc.portfolio.getUserBalance.useQuery(
-    { userId: user?.id || '' },
+  const {
+    data: balance,
+    refetch: refetchBalance,
+    isLoading: balanceLoading,
+  } = trpc.portfolio.getUserBalance.useQuery(
+    { userId: user?.id || "" },
     { enabled: !!user?.id }
   );
 
-  const { data: portfolioSummary, refetch: refetchSummary, isLoading: summaryLoading } = trpc.portfolio.getPortfolioSummary.useQuery(
-    { userId: user?.id || '' },
+  const {
+    data: portfolioSummary,
+    refetch: refetchSummary,
+    isLoading: summaryLoading,
+  } = trpc.portfolio.getPortfolioSummary.useQuery(
+    { userId: user?.id || "" },
     { enabled: !!user?.id }
   );
 
   // Fetch active strategies
-  const { data: strategiesData, refetch: refetchStrategies, isLoading: strategiesLoading } = trpc.strategy.getByUserId.useQuery(
-    { 
-      userId: user?.id || '',
+  const {
+    data: strategiesData,
+    refetch: refetchStrategies,
+    isLoading: strategiesLoading,
+  } = trpc.strategy.getByUserId.useQuery(
+    {
+      userId: user?.id || "",
       pagination: { page: 1, limit: 100 },
-      filters: { status: 'ACTIVE' as const }
+      filters: { status: "ACTIVE" as const },
     },
     { enabled: !!user?.id }
   );
 
   // Fetch open orders
-  const { data: ordersData, refetch: refetchOrders, isLoading: ordersLoading } = trpc.order.getByUserId.useQuery(
-    { 
-      userId: user?.id || '',
+  const {
+    data: ordersData,
+    refetch: refetchOrders,
+    isLoading: ordersLoading,
+  } = trpc.order.getByUserId.useQuery(
+    {
+      userId: user?.id || "",
       pagination: { page: 1, limit: 100 },
-      filters: { status: 'OPEN' as const }
+      filters: { status: "OPEN" as const },
     },
     { enabled: !!user?.id }
   );
 
   // Fetch recent positions for portfolio value
-  const { data: positionsData, refetch: refetchPositions } = trpc.portfolio.getPositionsByUserId.useQuery(
-    { 
-      userId: user?.id || '',
-      pagination: { page: 1, limit: 10 },
-      filters: {}
-    },
-    { enabled: !!user?.id }
-  );
-
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const { data: positionsData, refetch: refetchPositions } =
+    trpc.portfolio.getPositionsByUserId.useQuery(
+      {
+        userId: user?.id || "",
+        pagination: { page: 1, limit: 10 },
+        filters: {},
+      },
+      { enabled: !!user?.id }
+    );
 
   // Calculate real stats from fetched data
   useEffect(() => {
@@ -83,7 +111,8 @@ export default function DashboardPage() {
       const activeStrategies = strategiesData?.data?.length || 0;
       const openOrders = ordersData?.data?.length || 0;
       const totalBalance = balance?.totalBalance || 0;
-      const totalPnL = portfolioSummary?.balance?.totalPnl || balance?.totalPnl || 0;
+      const totalPnL =
+        portfolioSummary?.balance?.totalPnl || balance?.totalPnl || 0;
 
       setStats({
         totalBalance,
@@ -102,26 +131,35 @@ export default function DashboardPage() {
         refetchStrategies(),
         refetchOrders(),
         refetchSummary(),
-        refetchPositions && refetchPositions()
+        refetchPositions && refetchPositions(),
       ]);
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  const isLoading = balanceLoading || strategiesLoading || ordersLoading || summaryLoading;
-  const totalPnLPercentage = stats.totalBalance > 0 ? (stats.totalPnL / stats.totalBalance) * 100 : 0;
+  const isLoading =
+    balanceLoading || strategiesLoading || ordersLoading || summaryLoading;
+  const totalPnLPercentage =
+    stats.totalBalance > 0 ? (stats.totalPnL / stats.totalBalance) * 100 : 0;
   const isProfitable = stats.totalPnL >= 0;
 
   // Calculate additional metrics from real data
   const strategies = strategiesData?.data || [];
   const orders = ordersData?.data || [];
   const positions = positionsData?.data || [];
-  
-  const totalTrades = strategies.reduce((sum, strategy) => sum + strategy.totalTrades, 0);
-  const avgWinRate = strategies.length > 0 ? 
-    strategies.reduce((sum, strategy) => sum + strategy.winRate, 0) / strategies.length : 0;
-  const portfolioValue = portfolioSummary?.balance?.portfolioValue || balance?.portfolioValue || 0;
+
+  const totalTrades = strategies.reduce(
+    (sum, strategy) => sum + strategy.totalTrades,
+    0
+  );
+  const avgWinRate =
+    strategies.length > 0
+      ? strategies.reduce((sum, strategy) => sum + strategy.winRate, 0) /
+        strategies.length
+      : 0;
+  const portfolioValue =
+    portfolioSummary?.balance?.portfolioValue || balance?.portfolioValue || 0;
   const availableCash = balance?.availableCash || 0;
 
   if (!user) {
@@ -130,8 +168,12 @@ export default function DashboardPage() {
         <Card className="p-8 text-center shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
           <CardContent>
             <Shield className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
-            <p className="text-gray-600">Please log in to view your trading dashboard.</p>
+            <h2 className="text-xl font-semibold mb-2">
+              Authentication Required
+            </h2>
+            <p className="text-gray-600">
+              Please log in to view your trading dashboard.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -141,7 +183,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div className="space-y-2">
@@ -156,11 +197,19 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-6 text-sm text-gray-500">
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4" />
-                <span>{currentTime.toLocaleTimeString()}</span>
+                <span>
+                  {currentTime
+                    ? currentTime.toLocaleTimeString()
+                    : "Loading..."}
+                </span>
               </div>
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4" />
-                <span>{currentTime.toLocaleDateString()}</span>
+                <span>
+                  {currentTime
+                    ? currentTime.toLocaleDateString()
+                    : "Loading..."}
+                </span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -168,15 +217,17 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <Button 
+            <Button
               onClick={handleRefresh}
               disabled={isRefreshing}
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </div>
@@ -184,11 +235,12 @@ export default function DashboardPage() {
 
         {/* Main Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          
           {/* Total Balance Card */}
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Portfolio</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Total Portfolio
+              </CardTitle>
               <div className="w-8 h-8 bg-gray-100 rounded-sm flex items-center justify-center">
                 <Wallet className="h-4 w-4 text-gray-600" />
               </div>
@@ -210,7 +262,9 @@ export default function DashboardPage() {
           {/* P&L Card */}
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total P&L</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Total P&L
+              </CardTitle>
               <div className="w-8 h-8 bg-gray-100 rounded-sm flex items-center justify-center">
                 {isProfitable ? (
                   <TrendingUp className="h-4 w-4 text-green-600" />
@@ -221,14 +275,22 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-1">
-                <div className={`text-2xl font-light ${isProfitable ? 'text-green-600' : 'text-red-600'}`}>
+                <div
+                  className={`text-2xl font-light ${
+                    isProfitable ? "text-green-600" : "text-red-600"
+                  }`}
+                >
                   {isLoading ? (
                     <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
                   ) : (
-                    `${isProfitable ? '+' : '-'}₹${Math.abs(stats.totalPnL).toLocaleString()}`
+                    `${isProfitable ? "+" : "-"}₹${Math.abs(
+                      stats.totalPnL
+                    ).toLocaleString()}`
                   )}
                 </div>
-                <p className="text-xs text-gray-500">{totalPnLPercentage.toFixed(2)}% return</p>
+                <p className="text-xs text-gray-500">
+                  {totalPnLPercentage.toFixed(2)}% return
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -236,7 +298,9 @@ export default function DashboardPage() {
           {/* Active Strategies Card */}
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Active Strategies</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Active Strategies
+              </CardTitle>
               <div className="w-8 h-8 bg-gray-100 rounded-sm flex items-center justify-center">
                 <Target className="h-4 w-4 text-gray-600" />
               </div>
@@ -258,7 +322,9 @@ export default function DashboardPage() {
           {/* Open Orders Card */}
           <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Open Orders</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Open Orders
+              </CardTitle>
               <div className="w-8 h-8 bg-gray-100 rounded-sm flex items-center justify-center">
                 <Activity className="h-4 w-4 text-gray-600" />
               </div>
@@ -280,7 +346,6 @@ export default function DashboardPage() {
 
         {/* Quick Actions & Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Quick Actions */}
           <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader>
@@ -296,13 +361,15 @@ export default function DashboardPage() {
               <div className="text-center py-8">
                 <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg">
                   <Clock className="h-8 w-8 text-gray-400 mx-auto mb-3" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">Coming Soon</h3>
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">
+                    Coming Soon
+                  </h3>
                   <p className="text-gray-500 text-sm">
                     Quick action buttons will be available in the next update
                   </p>
                 </div>
               </div>
-              
+
               {/* Commented out current buttons for future use */}
               {/* 
               <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white">
@@ -331,7 +398,10 @@ export default function DashboardPage() {
                   </div>
                   <span>Performance Insights</span>
                 </div>
-                <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
+                <Badge
+                  variant="secondary"
+                  className="bg-gray-100 text-gray-700 border-gray-200"
+                >
                   Real-time
                 </Badge>
               </CardTitle>
@@ -376,7 +446,9 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Wallet className="h-5 w-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-700">Available Cash</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Available Cash
+                      </span>
                     </div>
                     <span className="font-medium text-gray-900">
                       {isLoading ? (
@@ -386,11 +458,13 @@ export default function DashboardPage() {
                       )}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <PieChart className="h-5 w-5 text-gray-600" />
-                      <span className="text-sm font-medium text-gray-700">Portfolio Value</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Portfolio Value
+                      </span>
                     </div>
                     <span className="font-medium text-gray-900">
                       {isLoading ? (
@@ -409,10 +483,12 @@ export default function DashboardPage() {
         {/* Footer */}
         <div className="text-center py-6">
           <p className="text-gray-500 text-sm">
-            Last updated: {currentTime.toLocaleString()} • Real-time data
+            Last updated:{" "}
+            {currentTime ? currentTime.toLocaleString() : "Loading..."} •
+            Real-time data
           </p>
         </div>
       </div>
     </div>
   );
-} 
+}

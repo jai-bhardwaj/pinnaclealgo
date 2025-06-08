@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/user-context";
 import { trpc } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,11 +34,18 @@ import {
   Calendar,
   Download,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export default function PnLPage() {
   const { user } = useUser();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState("30d");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentDate, setCurrentDate] = useState<string | null>(null);
+
+  // Initialize current date on client side only to prevent hydration mismatch
+  useEffect(() => {
+    setCurrentDate(formatDate(new Date()));
+  }, []);
 
   // Fetch P&L data with real tRPC calls
   const {
@@ -173,7 +180,7 @@ export default function PnLPage() {
             <div className="flex items-center space-x-6 text-sm text-gray-500">
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4" />
-                <span>{new Date().toLocaleDateString()}</span>
+                <span>{currentDate || "Loading..."}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -422,7 +429,7 @@ export default function PnLPage() {
                           <div className="flex items-center space-x-2">
                             <Calendar className="h-3 w-3 text-gray-400" />
                             <span className="text-gray-700">
-                              {new Date(day.date).toLocaleDateString()}
+                              {formatDate(day.date)}
                             </span>
                           </div>
                         </TableCell>

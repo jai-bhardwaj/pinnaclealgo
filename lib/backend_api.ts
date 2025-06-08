@@ -1,5 +1,6 @@
 import { vanillaTrpc } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/client";
+import { formatDate } from "@/lib/utils";
 
 // Use the actual tRPC Strategy type but create an alias for the frontend
 export type Strategy = RouterOutputs["strategy"]["getAll"][0];
@@ -7,12 +8,9 @@ export type StrategyById = RouterOutputs["strategy"]["getById"];
 
 // Update request interface
 export interface StrategyUpdateRequest {
-  margin?: number;
-  marginType?: "percentage" | "rupees";
   status?: "active" | "inactive";
   name?: string;
   description?: string;
-  basePrice?: number;
 }
 
 // Response interfaces
@@ -26,14 +24,10 @@ function transformStrategy(strategy: any): Strategy {
   return {
     id: strategy.id,
     name: strategy.name,
-    margin: strategy.margin || 5,
-    marginType: strategy.marginType || "percentage",
-    basePrice: strategy.basePrice || 50000,
     status: strategy.status?.toLowerCase() === "active" ? "active" : "inactive",
-    lastUpdated:
-      strategy.updatedAt?.toLocaleDateString() ||
-      strategy.lastUpdated ||
-      new Date().toLocaleDateString(),
+    lastUpdated: strategy.updatedAt
+      ? formatDate(strategy.updatedAt)
+      : formatDate(new Date()),
     user_id: strategy.userId,
     description: strategy.description,
     strategyType: strategy.strategyType,
@@ -42,8 +36,6 @@ function transformStrategy(strategy: any): Strategy {
     timeframe: strategy.timeframe,
     parameters: strategy.parameters,
     riskParameters: strategy.riskParameters,
-    isLive: strategy.isLive,
-    isPaperTrading: strategy.isPaperTrading,
     maxPositions: strategy.maxPositions,
     capitalAllocated: strategy.capitalAllocated,
     totalPnl: strategy.totalPnl,
@@ -130,16 +122,12 @@ export const backendApi = {
       name: string;
       description?: string;
       strategyType: string;
-      margin?: number;
-      marginType?: "percentage" | "rupees";
-      basePrice?: number;
       status?: "active" | "inactive";
       assetClass?: string;
       symbols?: string[];
       timeframe?: string;
       parameters?: any;
       riskParameters?: any;
-      isPaperTrading?: boolean;
       maxPositions?: number;
       capitalAllocated: number; // Make this required to fix the type error
     }): Promise<Strategy> {

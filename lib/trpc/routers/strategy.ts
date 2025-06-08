@@ -21,9 +21,6 @@ const createStrategySchema = z.object({
   riskPerTrade: z.number().min(0).max(1).optional(),
   isActive: z.boolean().optional().default(true),
   version: z.number().int().positive().optional().default(1),
-  margin: z.number().positive().optional().default(5),
-  marginType: z.enum(["percentage", "rupees"]).optional().default("percentage"),
-  basePrice: z.number().positive().optional().default(50000),
 });
 
 const updateStrategySchema = z.object({
@@ -37,9 +34,6 @@ const updateStrategySchema = z.object({
   maxPositions: z.number().int().positive().optional(),
   riskPerTrade: z.number().min(0).max(1).optional(),
   isActive: z.boolean().optional(),
-  margin: z.number().positive().optional(),
-  marginType: z.enum(["percentage", "rupees"]).optional(),
-  basePrice: z.number().positive().optional(),
   status: z.nativeEnum(StrategyStatus).optional(),
 });
 
@@ -99,9 +93,6 @@ export const strategyRouter = createTRPCRouter({
       const strategies = result.data.map((strategy) => ({
         id: strategy.id,
         name: strategy.name,
-        margin: strategy.margin || 5,
-        marginType: strategy.marginType || "percentage",
-        basePrice: strategy.basePrice || 50000,
         status:
           strategy.status?.toLowerCase() === "active" ? "active" : "inactive",
         lastUpdated: strategy.updatedAt.toLocaleDateString(),
@@ -113,8 +104,6 @@ export const strategyRouter = createTRPCRouter({
         timeframe: strategy.timeframe,
         parameters: strategy.parameters,
         riskParameters: strategy.riskParameters,
-        isLive: strategy.isLive,
-        isPaperTrading: strategy.isPaperTrading,
         maxPositions: strategy.maxPositions,
         capitalAllocated: strategy.capitalAllocated,
         totalPnl: strategy.totalPnl,
@@ -147,9 +136,6 @@ export const strategyRouter = createTRPCRouter({
           timeframe: TimeFrame.MINUTE_5,
           symbols: ["NIFTY"],
           capitalAllocated: 100000,
-          margin: 5,
-          marginType: "percentage" as const,
-          basePrice: 24000,
           status: StrategyStatus.DRAFT,
           parameters: {},
           riskParameters: {},
@@ -162,9 +148,6 @@ export const strategyRouter = createTRPCRouter({
           timeframe: TimeFrame.MINUTE_1,
           symbols: ["BANKNIFTY"],
           capitalAllocated: 50000,
-          margin: 2500,
-          marginType: "rupees" as const,
-          basePrice: 50000,
           status: StrategyStatus.DRAFT,
           parameters: {},
           riskParameters: {},
@@ -183,9 +166,6 @@ export const strategyRouter = createTRPCRouter({
       return createdStrategies.map((strategy) => ({
         id: strategy.id,
         name: strategy.name,
-        margin: strategy.margin || 5,
-        marginType: strategy.marginType || "percentage",
-        basePrice: strategy.basePrice || 50000,
         status: "inactive",
         lastUpdated: strategy.updatedAt.toLocaleDateString(),
         user_id: strategy.userId,
@@ -336,9 +316,6 @@ export const strategyRouter = createTRPCRouter({
         return {
           id: updatedStrategy.id,
           name: updatedStrategy.name,
-          margin: updatedStrategy.margin || 5,
-          marginType: updatedStrategy.marginType || "percentage",
-          basePrice: updatedStrategy.basePrice || 50000,
           status:
             updatedStrategy.status?.toLowerCase() === "active"
               ? "active"
@@ -352,8 +329,6 @@ export const strategyRouter = createTRPCRouter({
           timeframe: updatedStrategy.timeframe,
           parameters: updatedStrategy.parameters,
           riskParameters: updatedStrategy.riskParameters,
-          isLive: updatedStrategy.isLive,
-          isPaperTrading: updatedStrategy.isPaperTrading,
           maxPositions: updatedStrategy.maxPositions,
           capitalAllocated: updatedStrategy.capitalAllocated,
           totalPnl: updatedStrategy.totalPnl,
