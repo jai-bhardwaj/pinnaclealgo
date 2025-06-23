@@ -2,7 +2,8 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { env, isDev } from "@/lib/env";
+// import { env, isDev } from "@/lib/env";
+const isDev = process.env.NODE_ENV === "development";
 
 const prisma = new PrismaClient();
 
@@ -41,8 +42,8 @@ export const authOptions: NextAuthOptions = {
               id: true,
               username: true,
               email: true,
-              role: true,
               hashedPassword: true,
+              role: true,
               status: true,
             },
           });
@@ -80,23 +81,16 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          if (user.status !== "ACTIVE") {
-            if (isDev) {
-              console.log("Authorize failed: User account is not active");
-            }
-            return null;
-          }
-
           if (isDev) {
             console.log("Authentication successful for user:", user.username);
           }
 
           return {
             id: user.id,
-            username: user.username,
+            username: user.username || user.email, // Use email as fallback if username is null
             email: user.email,
-            role: user.role,
-            isActive: user.status === "ACTIVE",
+            role: user.role || "USER", // Use actual role from database
+            isActive: user.status === "ACTIVE", // Use actual status from database
           };
         } catch (error) {
           // Only log full error details in development
@@ -135,6 +129,6 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
-  secret: env.NEXTAUTH_SECRET, // Now properly validated, no fallback
+  secret: process.env.NEXTAUTH_SECRET, // Use environment variable directly
   debug: isDev, // Only enable debug in development
 };

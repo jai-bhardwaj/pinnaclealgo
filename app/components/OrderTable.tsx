@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { observer } from 'mobx-react-lite';
-import { useOrderStore } from '@/stores';
+import { observer } from "mobx-react-lite";
+import { useOrderStore } from "@/stores";
 import {
   Table,
   TableBody,
@@ -34,7 +34,7 @@ export const OrderTable = observer(() => {
       return;
     }
     try {
-      await orderStore.fetchOrders(session.user.id);
+      await orderStore.fetchOrders();
     } catch (err) {
       console.error("Error fetching orders:", err);
     }
@@ -62,11 +62,23 @@ export const OrderTable = observer(() => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      PENDING: { color: "bg-yellow-100 text-yellow-800", hover: "hover:bg-yellow-200" },
-      COMPLETE: { color: "bg-green-100 text-green-800", hover: "hover:bg-green-200" },
-      CANCELLED: { color: "bg-red-100 text-red-800", hover: "hover:bg-red-200" },
+      PENDING: {
+        color: "bg-yellow-100 text-yellow-800",
+        hover: "hover:bg-yellow-200",
+      },
+      COMPLETE: {
+        color: "bg-green-100 text-green-800",
+        hover: "hover:bg-green-200",
+      },
+      CANCELLED: {
+        color: "bg-red-100 text-red-800",
+        hover: "hover:bg-red-200",
+      },
       REJECTED: { color: "bg-red-100 text-red-800", hover: "hover:bg-red-200" },
-      PLACED: { color: "bg-blue-100 text-blue-800", hover: "hover:bg-blue-200" },
+      PLACED: {
+        color: "bg-blue-100 text-blue-800",
+        hover: "hover:bg-blue-200",
+      },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || {
@@ -148,7 +160,9 @@ export const OrderTable = observer(() => {
                     <Tooltip>
                       <TooltipTrigger>
                         <span className="cursor-help">
-                          {order.brokerOrderId ? order.brokerOrderId.slice(0, 8) + '...' : order.id.slice(0, 8) + '...'}
+                          {order.brokerOrderId
+                            ? order.brokerOrderId.slice(0, 8) + "..."
+                            : order.id.slice(0, 8) + "..."}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -174,7 +188,8 @@ export const OrderTable = observer(() => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {order.filledQuantity !== undefined && order.filledQuantity !== null ? (
+                    {order.filledQuantity !== undefined &&
+                    order.filledQuantity !== null ? (
                       <Tooltip>
                         <TooltipTrigger>
                           <span className="cursor-help">
@@ -183,7 +198,9 @@ export const OrderTable = observer(() => {
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Filled: {order.filledQuantity}</p>
-                          <p>Pending: {order.quantity - order.filledQuantity}</p>
+                          <p>
+                            Pending: {order.quantity - order.filledQuantity}
+                          </p>
                           <p>Total: {order.quantity}</p>
                         </TooltipContent>
                       </Tooltip>
@@ -222,4 +239,4 @@ export const OrderTable = observer(() => {
       </div>
     </TooltipProvider>
   );
-}); 
+});

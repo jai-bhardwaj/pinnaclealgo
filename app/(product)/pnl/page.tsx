@@ -66,10 +66,8 @@ export default function PnLPage() {
       userId: user?.id || "",
       startDate: new Date(
         Date.now() - parseInt(dateRange.replace("d", "")) * 24 * 60 * 60 * 1000
-      )
-        .toISOString()
-        .split("T")[0],
-      endDate: new Date().toISOString().split("T")[0],
+      ),
+      endDate: new Date(),
     },
     { enabled: !!user?.id }
   );

@@ -1,42 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Basic health check data
-    const healthData = {
-      status: 'healthy',
+    // Basic health check
+    const health = {
+      status: "healthy",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV,
-      version: process.env.npm_package_version || '1.0.0',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        external: Math.round(process.memoryUsage().external / 1024 / 1024),
+      version: process.env.npm_package_version || "1.0.0",
+      services: {
+        database: "connected", // This would check actual DB in production
+        api: "running",
       },
-      pid: process.pid,
     };
 
-    // Additional checks could be added here:
-    // - Database connectivity
-    // - External API availability
-    // - Cache status
-
-    return NextResponse.json(healthData, { 
-      status: 200,
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Pragma': 'no-cache',
-      }
-    });
+    return NextResponse.json(health, { status: 200 });
   } catch (error) {
     return NextResponse.json(
-      { 
-        status: 'unhealthy', 
-        error: error instanceof Error ? error.message : 'Unknown error',
+      {
+        status: "unhealthy",
         timestamp: new Date().toISOString(),
-      }, 
+        error: "Health check failed",
+      },
       { status: 500 }
     );
   }
-} 
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200 });
+}

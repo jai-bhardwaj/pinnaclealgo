@@ -1,19 +1,35 @@
-// Export all stores
-export { UserStore } from './UserStore';
-export { StrategyStore } from './StrategyStore';
-export { OrderStore } from './OrderStore';
-export { PortfolioStore } from './PortfolioStore';
-export { RootStore, rootStore } from './RootStore';
-
-// Export provider and hooks
+// Store exports for the trading frontend
 export {
-    StoreProvider,
-    useStores,
-    useUserStore,
-    useStrategyStore,
-    useOrderStore,
-    usePortfolioStore
-} from './StoreProvider';
+  EngineStoreProvider,
+  useEngineStore,
+  useEngineUserStore,
+  useEngineStrategyStore,
+  useEngineOrderStore,
+  useEnginePortfolioStore,
+  useEngineOperations,
+  EngineStoreContext,
+} from "./EngineStoreProvider";
 
-// Export types
-export type { RootStoreType } from './RootStore'; 
+export { EngineRootStore, engineRootStore } from "./EngineRootStore";
+export { EngineUserStore } from "./EngineUserStore";
+export { EngineOrderStore } from "./EngineOrderStore";
+export { EngineStrategyStore } from "./EngineStrategyStore";
+export { PortfolioStore } from "./PortfolioStore";
+
+// Import for re-export
+import {
+  EngineStoreProvider as _EngineStoreProvider,
+  useEngineStore as _useEngineStore,
+  useEngineStrategyStore as _useEngineStrategyStore,
+  useEngineOrderStore as _useEngineOrderStore,
+  useEngineUserStore as _useEngineUserStore,
+  useEnginePortfolioStore as _useEnginePortfolioStore,
+} from "./EngineStoreProvider";
+
+// Legacy compatibility exports
+export const StoreProvider = _EngineStoreProvider;
+export const useStores = _useEngineStore;
+export const useStrategyStore = _useEngineStrategyStore;
+export const useOrderStore = _useEngineOrderStore;
+export const useUserStore = _useEngineUserStore;
+export const usePortfolioStore = _useEnginePortfolioStore;

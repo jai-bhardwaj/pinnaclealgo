@@ -1,290 +1,79 @@
-# Trading Platform Frontend
+# Trading Frontend
 
-A modern, responsive trading platform frontend built with Next.js, TypeScript, and Tailwind CSS.
+A modern Next.js trading platform for managing strategies, orders, and portfolio tracking.
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- **Modern UI/UX**: Built with Radix UI components and Tailwind CSS
-- **Real-time Trading**: Live order management and strategy monitoring
-- **Authentication**: Secure user authentication with NextAuth.js
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **Type Safety**: Full TypeScript support for better development experience
-- **Database Integration**: Prisma ORM with PostgreSQL support
-
-## 📋 Prerequisites
-
-- Node.js 18 or higher
-- npm or yarn
-- PostgreSQL database
-- Trading backend API running
-
-## 🛠️ Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd trading-frontend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .sample.env .env.local
-   ```
-   
-   Edit `.env.local` with your configuration:
-   ```env
-   # Database
-   DATABASE_URL="your-postgresql-connection-string"
-   
-   # NextAuth Configuration
-   NEXTAUTH_URL="http://localhost:3000"
-   NEXTAUTH_SECRET="your-secret-key-here"
-   
-   # API Configuration
-   API_BASE_URL="http://your-backend-api:8000"
-   
-   # Environment
-   NODE_ENV="development"
-   ```
-
-4. **Set up the database**
-   ```bash
-   npx prisma generate
-   npx prisma db push
-   ```
-
-## 🚀 Deployment
-
-The project includes a comprehensive deployment script that supports multiple environments:
-
-### Development
 ```bash
-./deploy.sh development
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your database URL
+
+# Set up database
+npx prisma generate
+npx prisma db push
+npm run db:seed
+
+# Start development server
+npm run dev
 ```
 
-### Production
-```bash
-./deploy.sh production
+Visit [http://localhost:3000](http://localhost:3000)
+
+## 📋 Default Login
+
+- **Email**: `demo@trading.com`
+- **Password**: `demo123`
+
+## 🛠️ Built With
+
+- **Next.js 15** - React framework
+- **TypeScript** - Type safety
+- **Prisma** - Database ORM
+- **PostgreSQL** - Database
+- **NextAuth.js** - Authentication
+- **Tailwind CSS** - Styling
+- **MobX** - State management
+
+## 📂 Project Structure
+
+```
+├── app/              # Next.js app router pages
+├── components/       # Reusable UI components
+├── lib/             # Utilities and configurations
+├── prisma/          # Database schema and migrations
+├── services/        # API services
+├── stores/          # MobX state stores
+└── types/           # TypeScript type definitions
 ```
 
-### Docker
-```bash
-./deploy.sh docker
-```
+## 🗄️ Database
 
-### Docker Compose
-```bash
-./deploy.sh docker-compose
-```
+The application uses PostgreSQL with Prisma ORM. Key models:
 
-## 📁 Project Structure
-
-```
-trading-frontend/
-├── app/                    # Next.js app directory
-│   ├── (auth)/            # Authentication pages
-│   ├── components/        # Page-specific components
-│   ├── dashboard/         # Dashboard pages
-│   └── globals.css        # Global styles
-├── components/            # Reusable UI components
-│   ├── ui/               # Base UI components
-│   ├── app-sidebar.tsx   # Application sidebar
-│   └── nav-user.tsx      # User navigation
-├── contexts/             # React contexts
-│   └── user-context.tsx  # User state management
-├── lib/                  # Utility libraries
-│   └── backend_api.ts    # API client
-├── pages/                # Next.js pages (legacy)
-│   └── api/              # API routes
-├── prisma/               # Database schema and migrations
-├── public/               # Static assets
-├── deploy.sh             # Deployment script
-└── package.json          # Dependencies and scripts
-```
+- **Users** - Authentication and user management
+- **Strategies** - Trading strategies
+- **Orders** - Order management
+- **Positions** - Portfolio positions
 
 ## 🔧 Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+- `npm run db:seed` - Seed database with demo data
+- `npx prisma studio` - Open database GUI
 
-## 🎨 UI Components
-
-The project uses a modern component library built on:
-
-- **Radix UI**: Accessible, unstyled UI primitives
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide React**: Beautiful & consistent icons
-- **Custom Components**: Tailored for trading workflows
-
-### Key Components
-
-- **StrategyTable**: Manage trading strategies
-- **OrderTable**: View and manage orders
-- **AppSidebar**: Navigation sidebar
-- **UserProvider**: User state management
-
-## 🔐 Authentication
-
-Authentication is handled by NextAuth.js with support for:
-
-- JWT tokens
-- Session management
-- Protected routes
-- User context
-
-## 📊 API Integration
-
-The frontend communicates with the trading backend through:
-
-- RESTful API calls
-- Automatic token management
-- Error handling and retry logic
-- Real-time data updates
-
-### API Client Features
-
-- **Automatic Authentication**: Handles token refresh and storage
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Retry Logic**: Automatic retry for failed requests
-- **Type Safety**: Full TypeScript support for API responses
-
-## 🐳 Docker Support
-
-The project includes Docker support for easy deployment:
-
-### Dockerfile
-- Multi-stage build for optimized image size
-- Node.js 18 Alpine base image
-- Production-ready configuration
-
-### Docker Compose
-- Frontend service
-- PostgreSQL database
-- Environment variable management
-- Volume persistence
-
-## 🌍 Environment Configuration
-
-The deployment script supports multiple environments:
-
-- **Development**: `.env.local`
-- **Staging**: `.env.staging`
-- **Production**: `.env.production`
-
-### Required Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
-| `NEXTAUTH_URL` | Application URL | `http://localhost:3000` |
-| `NEXTAUTH_SECRET` | JWT secret key | `your-secret-key` |
-| `API_BASE_URL` | Backend API URL | `http://localhost:8000` |
-| `NODE_ENV` | Environment mode | `development` |
-
-## 🔧 Development
-
-### Getting Started
-
-1. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-2. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-3. The page auto-updates as you edit files
-
-### Code Style
-
-- TypeScript for type safety
-- ESLint for code linting
-- Prettier for code formatting
-- Tailwind CSS for styling
-
-### Component Development
-
-Components follow these patterns:
-
-- **Functional Components**: Using React hooks
-- **TypeScript**: Full type definitions
-- **Responsive Design**: Mobile-first approach
-- **Accessibility**: ARIA labels and keyboard navigation
-
-## 🚀 Production Deployment
-
-### Manual Deployment
-
-1. Build the application:
-   ```bash
-   npm run build
-   ```
-
-2. Start the production server:
-   ```bash
-   npm start
-   ```
-
-### Automated Deployment
-
-Use the deployment script for automated deployment:
+## 📦 Docker (Optional)
 
 ```bash
-./deploy.sh production
+# Build and run with Docker
+docker-compose up -d
 ```
 
-This will:
-- Load environment variables
-- Check requirements
-- Install dependencies
-- Set up database
-- Build the application
-- Start the production server
+## 📄 License
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **Build Errors**: Clear `.next` directory and rebuild
-   ```bash
-   rm -rf .next
-   npm run build
-   ```
-
-2. **Database Connection**: Verify `DATABASE_URL` in environment variables
-
-3. **API Connection**: Check `API_BASE_URL` and backend server status
-
-4. **Authentication Issues**: Verify `NEXTAUTH_SECRET` and `NEXTAUTH_URL`
-
-### Debug Mode
-
-Enable debug logging by setting:
-```env
-DEBUG=1
-```
-
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📞 Support
-
-For support and questions:
-- Create an issue in the repository
-- Check the troubleshooting section
-- Review the deployment logs
+MIT License
