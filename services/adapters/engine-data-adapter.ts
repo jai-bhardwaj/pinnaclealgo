@@ -49,6 +49,13 @@ import type {
   LoginResponse,
 } from "../engine-api.service";
 
+import type {
+  ApiOrder,
+  ApiStrategy,
+  ApiPosition,
+  ApiTrade,
+} from "@/types";
+
 export class EngineDataAdapter {
   // Strategy Adapters
   static engineStrategyToFrontend(engineStrategy: EngineStrategy): Strategy {
@@ -157,6 +164,36 @@ export class EngineDataAdapter {
     };
   }
 
+  static apiOrderToFrontend(apiOrder: ApiOrder): Order {
+    return {
+      id: apiOrder.id,
+      userId: apiOrder.user_id,
+      strategyId: apiOrder.strategy_id || undefined,
+      symbol: apiOrder.symbol,
+      exchange: "NSE", // Default exchange
+      side: this.mapApiOrderSide(apiOrder.signal_type),
+      orderType: this.mapApiOrderType(apiOrder.order_type),
+      productType: ProductType.INTRADAY, // Default product type
+      quantity: apiOrder.quantity,
+      price: apiOrder.price || undefined,
+      triggerPrice: undefined,
+      brokerOrderId: apiOrder.broker_order_id || undefined,
+      status: this.mapApiOrderStatus(apiOrder.status),
+      statusMessage: undefined,
+      filledQuantity: apiOrder.filled_quantity || 0,
+      averagePrice: apiOrder.filled_price || undefined,
+      tags: [],
+      notes: undefined,
+      placedAt: new Date(apiOrder.timestamp),
+      executedAt: apiOrder.filled_at ? new Date(apiOrder.filled_at) : undefined,
+      cancelledAt: undefined,
+      variety: "regular",
+      parentOrderId: undefined,
+      createdAt: new Date(apiOrder.timestamp),
+      updatedAt: new Date(apiOrder.timestamp),
+    };
+  }
+
   // Performance Adapters
   static userStrategyToPerformance(
     userStrategy: UserStrategy
@@ -242,6 +279,29 @@ export class EngineDataAdapter {
 
   private static mapOrderType(engineType: string): OrderType {
     return engineType === "MARKET" ? OrderType.MARKET : OrderType.LIMIT;
+  }
+
+  private static mapApiOrderSide(signalType: "BUY" | "SELL"): OrderSide {
+    return signalType === "BUY" ? OrderSide.BUY : OrderSide.SELL;
+  }
+
+  private static mapApiOrderType(orderType: "MARKET" | "LIMIT"): OrderType {
+    return orderType === "MARKET" ? OrderType.MARKET : OrderType.LIMIT;
+  }
+
+  private static mapApiOrderStatus(status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED"): FrontendOrderStatus {
+    switch (status) {
+      case "PENDING":
+        return FrontendOrderStatus.PENDING;
+      case "COMPLETED":
+        return FrontendOrderStatus.COMPLETE;
+      case "FAILED":
+        return FrontendOrderStatus.REJECTED;
+      case "CANCELLED":
+        return FrontendOrderStatus.CANCELLED;
+      default:
+        return FrontendOrderStatus.PENDING;
+    }
   }
 
   private static mapAssetClass(category: string): AssetClass {

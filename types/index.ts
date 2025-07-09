@@ -7,6 +7,255 @@
 // API Client types - these are the API contract types
 import type { RouterOutputs, RouterInputs } from "@/lib/trpc/client";
 
+// === FASTAPI BACKEND TYPES (matching API documentation exactly) ===
+
+// Health & Status
+export interface HealthResponse {
+  status: "healthy" | "unhealthy";
+  timestamp: string;
+  version: string;
+}
+
+export interface DetailedHealthResponse extends HealthResponse {
+  components: {
+    database: {
+      status: "healthy" | "unhealthy";
+      response_time_ms: number;
+    };
+    trading_engine: {
+      status: "healthy" | "unhealthy";
+      active_strategies: number;
+      orders_today: number;
+      success_rate: number;
+    };
+    market_data: {
+      status: "healthy" | "unhealthy";
+      last_update: string;
+    };
+  };
+  system: {
+    uptime_seconds: number;
+    memory_usage_mb: number;
+    cpu_usage_percent: number;
+  };
+}
+
+// Strategy Management
+export interface ApiStrategy {
+  id: string;
+  name: string;
+  class_name: string;
+  enabled: boolean;
+  symbols: string[];
+  parameters: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateStrategyRequest {
+  name: string;
+  class_name: string;
+  enabled: boolean;
+  symbols: string[];
+  parameters: Record<string, any>;
+}
+
+export interface UpdateStrategyRequest extends Partial<CreateStrategyRequest> {}
+
+// User Strategy Configuration
+export interface ApiUserConfig {
+  id: string;
+  user_id: string;
+  strategy_id: string;
+  enabled: boolean;
+  max_order_value: number;
+  max_daily_orders: number;
+  risk_percentage: number;
+  order_preferences: {
+    default_quantity?: number;
+    order_type?: string;
+    stop_loss_percentage?: number;
+    take_profit_percentage?: number;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateUserConfigRequest {
+  user_id: string;
+  strategy_id: string;
+  enabled: boolean;
+  max_order_value: number;
+  max_daily_orders: number;
+  risk_percentage: number;
+  order_preferences: {
+    default_quantity?: number;
+    order_type?: string;
+    stop_loss_percentage?: number;
+    take_profit_percentage?: number;
+  };
+}
+
+export interface UpdateUserConfigRequest extends Partial<CreateUserConfigRequest> {}
+
+// Order Management
+export interface ApiOrder {
+  id: string;
+  user_id: string;
+  strategy_id?: string;
+  symbol: string;
+  signal_type: "BUY" | "SELL";
+  quantity: number;
+  price: number;
+  order_type: "MARKET" | "LIMIT";
+  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  broker_order_id?: string;
+  filled_quantity?: number;
+  filled_price?: number;
+  timestamp: string;
+  filled_at?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateOrderRequest {
+  user_id: string;
+  strategy_id?: string;
+  symbol: string;
+  signal_type: "BUY" | "SELL";
+  quantity: number;
+  price?: number;
+  order_type: "MARKET" | "LIMIT";
+  metadata?: Record<string, any>;
+}
+
+// Position Management
+export interface ApiPosition {
+  id: string;
+  user_id: string;
+  symbol: string;
+  quantity: number;
+  average_price: number;
+  current_price: number;
+  market_value: number;
+  pnl: number;
+  pnl_percentage: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Trade Management
+export interface ApiTrade {
+  id: string;
+  user_id: string;
+  order_id: string;
+  symbol: string;
+  side: "BUY" | "SELL";
+  quantity: number;
+  price: number;
+  value: number;
+  commission: number;
+  taxes: number;
+  net_value: number;
+  trade_id?: string;
+  exchange: string;
+  timestamp: string;
+}
+
+// WebSocket Event Types
+export interface OrderUpdateEvent {
+  type: "order_update";
+  data: {
+    id: string;
+    status: ApiOrder["status"];
+    filled_quantity?: number;
+    filled_price?: number;
+    filled_at?: string;
+  };
+}
+
+export interface PositionUpdateEvent {
+  type: "position_update";
+  data: {
+    id: string;
+    symbol: string;
+    quantity: number;
+    current_price: number;
+    pnl: number;
+  };
+}
+
+export interface StrategyUpdateEvent {
+  type: "strategy_update";
+  data: {
+    id: string;
+    name: string;
+    enabled: boolean;
+    updated_at: string;
+  };
+}
+
+export interface TradeUpdateEvent {
+  type: "trade_update";
+  data: {
+    id: string;
+    symbol: string;
+    quantity: number;
+    price: number;
+    timestamp: string;
+  };
+}
+
+export type WebSocketEvent = OrderUpdateEvent | PositionUpdateEvent | StrategyUpdateEvent | TradeUpdateEvent;
+
+// API Error Response
+export interface ApiErrorResponse {
+  detail: string;
+  error_code?: string;
+  timestamp: string;
+}
+
+// Query Parameters for list endpoints
+export interface StrategyListParams {
+  enabled?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface UserConfigListParams {
+  user_id?: string;
+  strategy_id?: string;
+  enabled?: boolean;
+}
+
+export interface OrderListParams {
+  user_id?: string;
+  strategy_id?: string;
+  symbol?: string;
+  status?: ApiOrder["status"];
+  signal_type?: "BUY" | "SELL";
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PositionListParams {
+  user_id?: string;
+  symbol?: string;
+  active_only?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface TradeListParams {
+  user_id?: string;
+  symbol?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // === CORE ENTITY TYPES (from tRPC, these are the actual API types) ===
 
 // User types

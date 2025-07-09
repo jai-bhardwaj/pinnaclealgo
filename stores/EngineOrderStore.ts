@@ -144,7 +144,7 @@ export class EngineOrderStore implements StoreState {
     }
   }
 
-  async fetchOrders() {
+  async fetchOrders(userId?: string) {
     this.setLoading(true);
     this.clearError();
 
@@ -154,7 +154,21 @@ export class EngineOrderStore implements StoreState {
     };
 
     try {
-      const result = await withRetry(() => tradingEngineApi.getOrders(), {
+      // Build query parameters based on current filters and pagination
+      const queryParams: any = {
+        limit: this.ordersLimit,
+        offset: (this.ordersPage - 1) * this.ordersLimit,
+      };
+
+      if (userId) queryParams.user_id = userId;
+      if (this.filters.status) queryParams.status = this.filters.status;
+      if (this.filters.symbol) queryParams.symbol = this.filters.symbol;
+      if (this.filters.strategyId) queryParams.strategy_id = this.filters.strategyId;
+      if (this.filters.side) queryParams.signal_type = this.filters.side;
+      if (this.filters.startDate) queryParams.start_date = this.filters.startDate;
+      if (this.filters.endDate) queryParams.end_date = this.filters.endDate;
+
+      const result = await withRetry(() => tradingEngineApi.getOrders(queryParams), {
         maxAttempts: 3,
         onRetry: (attempt, error) => {
           console.log(
@@ -169,12 +183,13 @@ export class EngineOrderStore implements StoreState {
       }
 
       runInAction(() => {
-        const orders = result.data!.map((engineOrder) =>
-          EngineDataAdapter.engineOrderToFrontend(engineOrder)
+        // Convert API orders to frontend format
+        const orders = result.data!.map((apiOrder) =>
+          EngineDataAdapter.apiOrderToFrontend(apiOrder)
         );
 
         this.orders = orders;
-        this.ordersTotal = orders.length;
+        this.ordersTotal = orders.length; // API doesn't provide total count, using returned length
         this.orderStats = this.calculateOrderStats(orders);
       });
     } catch (error: unknown) {
@@ -206,22 +221,45 @@ export class EngineOrderStore implements StoreState {
     };
 
     try {
-      // Convert frontend order to engine format
-      const engineOrderData =
-        EngineDataAdapter.frontendToEngineOrder(orderData);
+      // Build create order request from frontend order data
+      const createOrderRequest = {
+        user_id: orderData.userId || "default_user",
+        strategy_id: orderData.strategyId,
+        symbol: orderData.symbol || "",
+        signal_type: orderData.side === "BUY" ? "BUY" as const : "SELL" as const,
+        quantity: orderData.quantity || 1,
+        price: orderData.price,
+        order_type: orderData.orderType === "MARKET" ? "MARKET" as const : "LIMIT" as const,
+        metadata: {
+          manual_order: true,
+          notes: orderData.notes || "Manual order creation",
+        },
+      };
 
-      // Note: The engine API doesn't expose order creation directly
-      // This would typically be handled by strategy execution
-      console.log(
-        "Order creation requested (handled by strategy execution):",
-        engineOrderData
+      const result = await withRetry(
+        () => tradingEngineApi.createOrder(createOrderRequest),
+        {
+          maxAttempts: 3,
+          onRetry: (attempt, error) => {
+            console.log(
+              `Retrying createOrder (attempt ${attempt}):`,
+              error.message
+            );
+          },
+        }
       );
 
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to create order");
+      }
+
       runInAction(() => {
-        console.log("Order creation simulated successfully");
+        // Convert API response to frontend format and add to orders list
+        const newOrder = EngineDataAdapter.apiOrderToFrontend(result.data!);
+        this.addOrder(newOrder);
       });
 
-      return { id: "simulated-order-id", ...orderData };
+      return EngineDataAdapter.apiOrderToFrontend(result.data);
     } catch (error: unknown) {
       const appError = classifyError(error, context);
       runInAction(() => {

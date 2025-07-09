@@ -1,6 +1,26 @@
 // Trading Engine API Service
 // Bridges the gap between Next.js app and Python trading engine
 
+import type {
+  HealthResponse,
+  DetailedHealthResponse,
+  ApiStrategy,
+  CreateStrategyRequest,
+  UpdateStrategyRequest,
+  ApiUserConfig,
+  CreateUserConfigRequest,
+  UpdateUserConfigRequest,
+  ApiOrder,
+  CreateOrderRequest,
+  ApiPosition,
+  ApiTrade,
+  StrategyListParams,
+  UserConfigListParams,
+  OrderListParams,
+  PositionListParams,
+  TradeListParams,
+} from "@/types";
+
 interface EngineConfig {
   baseUrl: string;
   apiKey?: string;
@@ -146,7 +166,8 @@ class TradingEngineApiService {
     }
   }
 
-  // Authentication
+  // === AUTHENTICATION ===
+
   async login(
     userId: string,
     apiKey: string
@@ -226,7 +247,156 @@ class TradingEngineApiService {
     return false;
   }
 
-  // Strategy Management
+  // === HEALTH & STATUS ===
+
+  async getHealth(): Promise<ApiResponse<HealthResponse>> {
+    return this.makeRequest<HealthResponse>("/health");
+  }
+
+  async getDetailedHealth(): Promise<ApiResponse<DetailedHealthResponse>> {
+    return this.makeRequest<DetailedHealthResponse>("/health/detailed");
+  }
+
+  // === STRATEGY MANAGEMENT ===
+
+  async getStrategies(params?: StrategyListParams): Promise<ApiResponse<ApiStrategy[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.enabled !== undefined) searchParams.set('enabled', params.enabled.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    
+    const endpoint = `/strategies${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.makeRequest<ApiStrategy[]>(endpoint);
+  }
+
+  async getStrategy(strategyId: string): Promise<ApiResponse<ApiStrategy>> {
+    return this.makeRequest<ApiStrategy>(`/strategies/${strategyId}`);
+  }
+
+  async createStrategy(data: CreateStrategyRequest): Promise<ApiResponse<ApiStrategy>> {
+    return this.makeRequest<ApiStrategy>("/strategies", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStrategy(strategyId: string, data: UpdateStrategyRequest): Promise<ApiResponse<ApiStrategy>> {
+    return this.makeRequest<ApiStrategy>(`/strategies/${strategyId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteStrategy(strategyId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.makeRequest<{ message: string }>(`/strategies/${strategyId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // === USER STRATEGY CONFIGURATION ===
+
+  async getUserConfigs(params?: UserConfigListParams): Promise<ApiResponse<ApiUserConfig[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.strategy_id) searchParams.set('strategy_id', params.strategy_id);
+    if (params?.enabled !== undefined) searchParams.set('enabled', params.enabled.toString());
+    
+    const endpoint = `/user-configs${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.makeRequest<ApiUserConfig[]>(endpoint);
+  }
+
+  async getUserConfigsByUserId(userId: string): Promise<ApiResponse<ApiUserConfig[]>> {
+    return this.makeRequest<ApiUserConfig[]>(`/user-configs/${userId}`);
+  }
+
+  async createUserConfig(data: CreateUserConfigRequest): Promise<ApiResponse<ApiUserConfig>> {
+    return this.makeRequest<ApiUserConfig>("/user-configs", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateUserConfig(configId: string, data: UpdateUserConfigRequest): Promise<ApiResponse<ApiUserConfig>> {
+    return this.makeRequest<ApiUserConfig>(`/user-configs/${configId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUserConfig(configId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.makeRequest<{ message: string }>(`/user-configs/${configId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // === ORDER MANAGEMENT ===
+
+  async getOrders(params?: OrderListParams): Promise<ApiResponse<ApiOrder[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.strategy_id) searchParams.set('strategy_id', params.strategy_id);
+    if (params?.symbol) searchParams.set('symbol', params.symbol);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.signal_type) searchParams.set('signal_type', params.signal_type);
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    
+    const endpoint = `/orders${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.makeRequest<ApiOrder[]>(endpoint);
+  }
+
+  async getOrder(orderId: string): Promise<ApiResponse<ApiOrder>> {
+    return this.makeRequest<ApiOrder>(`/orders/${orderId}`);
+  }
+
+  async createOrder(data: CreateOrderRequest): Promise<ApiResponse<ApiOrder>> {
+    return this.makeRequest<ApiOrder>("/orders", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // === POSITION MANAGEMENT ===
+
+  async getPositions(params?: PositionListParams): Promise<ApiResponse<ApiPosition[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.symbol) searchParams.set('symbol', params.symbol);
+    if (params?.active_only !== undefined) searchParams.set('active_only', params.active_only.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    
+    const endpoint = `/positions${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.makeRequest<ApiPosition[]>(endpoint);
+  }
+
+  async getPosition(positionId: string): Promise<ApiResponse<ApiPosition>> {
+    return this.makeRequest<ApiPosition>(`/positions/${positionId}`);
+  }
+
+  // === TRADE MANAGEMENT ===
+
+  async getTrades(params?: TradeListParams): Promise<ApiResponse<ApiTrade[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.user_id) searchParams.set('user_id', params.user_id);
+    if (params?.symbol) searchParams.set('symbol', params.symbol);
+    if (params?.start_date) searchParams.set('start_date', params.start_date);
+    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    
+    const endpoint = `/trades${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.makeRequest<ApiTrade[]>(endpoint);
+  }
+
+  async getTrade(tradeId: string): Promise<ApiResponse<ApiTrade>> {
+    return this.makeRequest<ApiTrade>(`/trades/${tradeId}`);
+  }
+
+  // === LEGACY METHODS (for backward compatibility) ===
+
   async getMarketplace(): Promise<ApiResponse<EngineStrategy[]>> {
     return this.makeRequest<EngineStrategy[]>("/marketplace");
   }
@@ -261,7 +431,6 @@ class TradingEngineApiService {
     });
   }
 
-  // System Information
   async getSystemStatus(): Promise<ApiResponse<EngineSystemStatus>> {
     return this.makeRequest<EngineSystemStatus>("/system/status");
   }
@@ -270,26 +439,14 @@ class TradingEngineApiService {
     return this.makeRequest<{ status: string }>("/health");
   }
 
-  // Market Data
   async getMarketData(): Promise<ApiResponse<any>> {
     return this.makeRequest("/market-data");
-  }
-
-  // Orders (if the engine provides order endpoints)
-  async getOrders(): Promise<ApiResponse<EngineOrder[]>> {
-    return this.makeRequest<EngineOrder[]>("/orders");
-  }
-
-  // Strategy Statistics
-  async getStrategies(): Promise<ApiResponse<any>> {
-    return this.makeRequest("/strategies");
   }
 
   async getBrokerStats(): Promise<ApiResponse<any>> {
     return this.makeRequest("/broker");
   }
 
-  // Administrative functions
   async getMemoryStatus(): Promise<ApiResponse<any>> {
     return this.makeRequest("/admin/memory/status");
   }
