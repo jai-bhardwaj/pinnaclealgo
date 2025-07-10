@@ -1,0 +1,69 @@
+name: Build and Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Create environment file
+      run: |
+        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+        echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}" >> .env
+        echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
+        echo "NEXT_PUBLIC_ENGINE_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}" >> .env
+        echo "NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}" >> .env
+        
+    - name: Generate Prisma client
+      run: npx prisma generate
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy
+        cp -r .next/static deploy/
+        cp -r .next/standalone deploy/
+        cp -r public deploy/
+        cp package.json deploy/
+        
+    - name: Deploy to DigitalOcean droplet
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.DROPLET_HOST }}
+        username: ${{ secrets.DROPLET_USERNAME }}
+        key: ${{ secrets.DROPLET_SSH_KEY }}
+        source: "deploy/*"
+        target: "/var/www/pinnacle-frontend"
+        strip_components: 1
+        
+    - name: Restart nginx and PM2
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.DROPLET_HOST }}
+        username: ${{ secrets.DROPLET_USERNAME }}
+        key: ${{ secrets.DROPLET_SSH_KEY }}
+        script: |
+          cd /var/www/pinnacle-frontend
+          pm2 restart pinnacle-frontend || pm2 start npm --name "pinnacle-frontend" -- start
+          sudo systemctl reload nginx 
