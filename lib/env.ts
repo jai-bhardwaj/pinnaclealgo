@@ -28,13 +28,13 @@ function validateEnv() {
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error("❌ Invalid environment variables:", error.errors);
-      // During build time, use defaults instead of throwing
-      if (process.env.NODE_ENV === "development" || process.env.CI) {
+      // During build time or CI, use defaults instead of throwing
+      if (process.env.NODE_ENV === "development" || process.env.CI || process.env.NODE_ENV === "production") {
         return {
           NEXTAUTH_SECRET:
             process.env.NEXTAUTH_SECRET ||
             "default-development-secret-key-for-build",
-          NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+          NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
           DATABASE_URL:
             process.env.DATABASE_URL || "postgresql://localhost:5432/dev",
           NODE_ENV: process.env.NODE_ENV || "development",
@@ -43,7 +43,7 @@ function validateEnv() {
           NEXT_PUBLIC_ENABLE_ERROR_REPORTING:
             process.env.NEXT_PUBLIC_ENABLE_ERROR_REPORTING,
           NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
-          NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+          NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
           NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
         } as any;
       }
