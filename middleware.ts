@@ -41,15 +41,11 @@ export async function middleware(request: NextRequest) {
         "Middleware: Redirecting authenticated user from login to dashboard"
       );
     }
-    try {
-      const redirectUrl = new URL("/dashboard", request.url);
-      // Add cache busting parameter to avoid browser caching
-      redirectUrl.searchParams.set("t", Date.now().toString());
-      return NextResponse.redirect(redirectUrl);
-    } catch (error) {
-      // Fallback redirect if URL creation fails
-      return NextResponse.redirect(new URL("/dashboard", "http://localhost"));
-    }
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const redirectUrl = new URL("/dashboard", baseUrl);
+    // Add cache busting parameter to avoid browser caching
+    redirectUrl.searchParams.set("t", Date.now().toString());
+    return NextResponse.redirect(redirectUrl);
   }
 
   // If on protected page and not authenticated, redirect to login
@@ -59,15 +55,11 @@ export async function middleware(request: NextRequest) {
         "Middleware: Redirecting unauthenticated user from protected page to login"
       );
     }
-    try {
-      const redirectUrl = new URL("/login", request.url);
-      // Add cache busting parameter to avoid browser caching
-      redirectUrl.searchParams.set("t", Date.now().toString());
-      return NextResponse.redirect(redirectUrl);
-    } catch (error) {
-      // Fallback redirect if URL creation fails
-      return NextResponse.redirect(new URL("/login", "http://localhost"));
-    }
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const redirectUrl = new URL("/login", baseUrl);
+    // Add cache busting parameter to avoid browser caching
+    redirectUrl.searchParams.set("t", Date.now().toString());
+    return NextResponse.redirect(redirectUrl);
   }
 
   // Otherwise, proceed normally
