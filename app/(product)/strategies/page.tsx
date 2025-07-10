@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import StrategyTable from "@/app/components/StrategyTable";
-import { useStrategyStore } from "@/stores";
+import { useStores } from "@/stores";
 import { useUser } from "@/contexts/user-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Plus, RefreshCw, AlertCircle, BarChart3 } from "lucide-react";
 
 const StrategiesPage = observer(() => {
   const { user } = useUser();
-  const strategyStore = useStrategyStore();
+  const { strategyStore } = useStores();
 
   useEffect(() => {
     if (user?.id) {

@@ -46,14 +46,9 @@ interface DefaultCredentials {
   apiKey?: string;
 }
 
-// Get default credentials for development/testing
+// Get credentials from environment variables for real admin users
 export function getDefaultCredentials(): DefaultCredentials | null {
-  // Only provide default credentials in development mode
-  if (process.env.NODE_ENV !== "development") {
-    return null;
-  }
-
-  // Check for environment variables first
+  // Check for environment variables for real admin credentials
   const envUserId = process.env.NEXT_PUBLIC_DEFAULT_USER_ID;
   const envApiKey = process.env.NEXT_PUBLIC_DEFAULT_API_KEY;
 
@@ -64,11 +59,8 @@ export function getDefaultCredentials(): DefaultCredentials | null {
     };
   }
 
-  // Fallback to demo credentials for development
-  return {
-    userId: "demo_user",
-    apiKey: "demo_api_key_12345",
-  };
+  // No default credentials - users must enter their real admin credentials
+  return null;
 }
 
 // Utility functions for configuration

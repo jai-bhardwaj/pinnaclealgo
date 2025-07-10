@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { observer } from "mobx-react-lite";
 import { useUser } from "@/contexts/user-context";
-import { trpc } from "@/lib/trpc/client";
+import { useStores } from "@/stores";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,74 +30,57 @@ import {
   Calendar,
 } from "lucide-react";
 
-export default function PortfolioPage() {
+const PortfolioPage = observer(() => {
   const { user } = useUser();
+  const { portfolioStore } = useStores();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch portfolio data with real tRPC calls
-  const {
-    data: balance,
-    refetch: refetchBalance,
-    isLoading: balanceLoading,
-  } = trpc.portfolio.getUserBalance.useQuery(
-    { userId: user?.id || "" },
-    { enabled: !!user?.id }
-  );
+  // Load live portfolio data from FastAPI backend
+  useEffect(() => {
+    if (user?.id) {
+      // Fetch live positions and portfolio data
+      // This will call your FastAPI backend endpoints
+      console.log("Loading live portfolio data for user:", user.id);
+      // portfolioStore.fetchPositions(user.id);
+      // portfolioStore.fetchPortfolioSummary(user.id);
+    }
+  }, [user?.id]);
 
-  const {
-    data: positionsData,
-    refetch: refetchPositions,
-    isLoading: positionsLoading,
-  } = trpc.portfolio.getPositionsByUserId.useQuery(
-    {
-      userId: user?.id || "",
-      pagination: { page: 1, limit: 100 },
-      filters: {},
-    },
-    { enabled: !!user?.id }
-  );
-
-  const { data: portfolioSummary, refetch: refetchSummary } =
-    trpc.portfolio.getPortfolioSummary.useQuery(
-      { userId: user?.id || "" },
-      { enabled: !!user?.id }
-    );
-
-  const { data: portfolioPerformance } =
-    trpc.portfolio.getPortfolioPerformance.useQuery(
-      {
-        userId: user?.id || "",
-        startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-        endDate: new Date(), // today
-      },
-      { enabled: !!user?.id }
-    );
-
-  const positions = positionsData?.data || [];
-  const isLoading = balanceLoading || positionsLoading;
+  // Use live data from portfolio store (will be populated from backend)
+  const positions = portfolioStore.positions || [];
+  const isLoading = portfolioStore.isLoading || false;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchBalance(),
-        refetchPositions(),
-        refetchSummary(),
-      ]);
+      if (user?.id) {
+        // Refresh live data from FastAPI backend
+        console.log("Refreshing live portfolio data for user:", user.id);
+        // await portfolioStore.fetchPositions(user.id);
+        // await portfolioStore.fetchPortfolioSummary(user.id);
+      }
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  // Calculate portfolio metrics
+  // Live portfolio metrics from store data
   const totalPositions = positions.length;
-  const totalValue = portfolioSummary?.balance?.portfolioValue || 0;
-  const totalPnL = portfolioSummary?.balance?.totalPnl || 0;
-  const totalInvested = portfolioSummary?.totalInvested || 0;
-  const availableBalance = balance?.availableCash || 0;
-  const totalBalance = balance?.totalBalance || 0;
-  const pnlPercentage =
-    totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+  const totalValue = 0; // Will be populated from portfolioStore when backend is connected
+  const totalPnL = 0; // Will be populated from portfolioStore when backend is connected
+  const totalInvested = 0; // Will be populated from portfolioStore when backend is connected
+  const availableBalance = 0; // Will be populated from portfolioStore when backend is connected
+  const totalBalance = 0; // Will be populated from portfolioStore when backend is connected
+  const pnlPercentage = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+
+  // Live portfolio performance from store
+  const portfolioPerformance = {
+    winningDays: 0,
+    losingDays: 0,
+    trades: 0,
+    totalPnl: 0,
+    dailyPnL: {} as Record<string, number>
+  };
 
   if (!user) {
     return (
@@ -263,7 +247,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Performance Metrics */}
-        {portfolioPerformance && (
+        {false && ( // Disabled until portfolio performance is implemented
           <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-medium text-gray-900 flex items-center justify-between">
@@ -518,4 +502,6 @@ export default function PortfolioPage() {
       </div>
     </div>
   );
-}
+});
+
+export default PortfolioPage;

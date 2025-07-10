@@ -25,7 +25,7 @@ const EngineLoginForm = observer(
       useEngineOperations();
 
     const [credentials, setCredentials] = useState(() => {
-      // Use default credentials in development mode
+      // Check for real admin credentials from environment
       const defaultCreds = getDefaultCredentials();
       return {
         userId: defaultCreds?.userId || "",

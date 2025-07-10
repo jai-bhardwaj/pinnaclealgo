@@ -7,7 +7,12 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const fullUrl = `${pathname}${search}`;
   const isLoginPage = pathname === "/login";
-  const isSettingsPage = pathname.startsWith("/settings");
+  const isProtectedPage = pathname.startsWith("/dashboard") || 
+                          pathname.startsWith("/strategies") || 
+                          pathname.startsWith("/orders") || 
+                          pathname.startsWith("/portfolio") || 
+                          pathname.startsWith("/pnl") || 
+                          pathname.startsWith("/settings");
 
   // Get the token to check if user is authenticated
   const token = await getToken({
@@ -25,15 +30,15 @@ export async function middleware(request: NextRequest) {
     console.log(
       `Middleware: Path=${fullUrl}, Token=${!!token}, UserId=${
         token?.userId
-      }, IsAuthenticated=${isAuthenticated}, LoginPage=${isLoginPage}, SettingsPage=${isSettingsPage}`
+      }, IsAuthenticated=${isAuthenticated}, LoginPage=${isLoginPage}, ProtectedPage=${isProtectedPage}`
     );
   }
 
-  // If on login page and authenticated, redirect to settings
+  // If on login page and authenticated, redirect to dashboard
   if (isLoginPage && isAuthenticated) {
     if (process.env.NODE_ENV === "development") {
       console.log(
-        "Middleware: Redirecting authenticated user from login to settings"
+        "Middleware: Redirecting authenticated user from login to dashboard"
       );
     }
     const redirectUrl = new URL("/dashboard", request.url);
@@ -42,11 +47,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If on settings page and not authenticated, redirect to login
-  if (isSettingsPage && !isAuthenticated) {
+  // If on protected page and not authenticated, redirect to login
+  if (isProtectedPage && !isAuthenticated) {
     if (process.env.NODE_ENV === "development") {
       console.log(
-        "Middleware: Redirecting unauthenticated user from settings to login"
+        "Middleware: Redirecting unauthenticated user from protected page to login"
       );
     }
     const redirectUrl = new URL("/login", request.url);
@@ -61,5 +66,13 @@ export async function middleware(request: NextRequest) {
 
 // Run middleware on these paths
 export const config = {
-  matcher: ["/login", "/dashboard/:path*"],
+  matcher: [
+    "/login", 
+    "/dashboard/:path*", 
+    "/strategies/:path*", 
+    "/orders/:path*", 
+    "/portfolio/:path*", 
+    "/pnl/:path*", 
+    "/settings/:path*"
+  ],
 };

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { observer } from "mobx-react-lite";
 import { useStores } from "@/stores";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { trpc } from "@/lib/trpc/client";
 import { useUser } from "@/contexts/user-context";
 import type { DashboardStats } from "@/types";
 import {
@@ -23,7 +23,7 @@ import {
   PieChart,
 } from "lucide-react";
 
-export default function DashboardPage() {
+const DashboardPage = observer(() => {
   const { portfolioStore, strategyStore, orderStore } = useStores();
   const { user } = useUser();
   const [stats, setStats] = useState<DashboardStats>({
@@ -47,120 +47,72 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch comprehensive dashboard data with real tRPC calls
-  const {
-    data: balance,
-    refetch: refetchBalance,
-    isLoading: balanceLoading,
-  } = trpc.portfolio.getUserBalance.useQuery(
-    { userId: user?.id || "" },
-    { enabled: !!user?.id }
-  );
-
-  const {
-    data: portfolioSummary,
-    refetch: refetchSummary,
-    isLoading: summaryLoading,
-  } = trpc.portfolio.getPortfolioSummary.useQuery(
-    { userId: user?.id || "" },
-    { enabled: !!user?.id }
-  );
-
-  // Fetch active strategies
-  const {
-    data: strategiesData,
-    refetch: refetchStrategies,
-    isLoading: strategiesLoading,
-  } = trpc.strategy.getByUserId.useQuery(
-    {
-      userId: user?.id || "",
-      pagination: { page: 1, limit: 100 },
-      filters: { status: "ACTIVE" as const },
-    },
-    { enabled: !!user?.id }
-  );
-
-  // Fetch open orders
-  const {
-    data: ordersData,
-    refetch: refetchOrders,
-    isLoading: ordersLoading,
-  } = trpc.order.getByUserId.useQuery(
-    {
-      userId: user?.id || "",
-      pagination: { page: 1, limit: 100 },
-      filters: { status: "OPEN" as const },
-    },
-    { enabled: !!user?.id }
-  );
-
-  // Fetch recent positions for portfolio value
-  const { data: positionsData, refetch: refetchPositions } =
-    trpc.portfolio.getPositionsByUserId.useQuery(
-      {
-        userId: user?.id || "",
-        pagination: { page: 1, limit: 10 },
-        filters: {},
-      },
-      { enabled: !!user?.id }
-    );
-
-  // Calculate real stats from fetched data
+  // Load live data using MobX stores
   useEffect(() => {
-    if (balance || strategiesData || ordersData || portfolioSummary) {
-      const activeStrategies = strategiesData?.data?.length || 0;
-      const openOrders = ordersData?.data?.length || 0;
-      const totalBalance = balance?.totalBalance || 0;
-      const totalPnL =
-        portfolioSummary?.balance?.totalPnl || balance?.totalPnl || 0;
-
-      setStats({
-        totalBalance,
-        totalPnL,
-        activeStrategies,
-        openOrders,
-      });
+    if (user?.id) {
+      // Fetch live dashboard data from FastAPI backend
+      strategyStore.fetchStrategies(user.id);
+      orderStore.fetchOrders(user.id);
+      
+      // Fetch portfolio data - will be implemented when portfolio store methods are added
+      // portfolioStore.fetchPortfolio(user.id);
     }
-  }, [balance, strategiesData, ordersData, portfolioSummary]);
+  }, [user?.id, strategyStore, orderStore, portfolioStore]);
+
+  // Calculate stats from live store data
+  useEffect(() => {
+    const activeStrategies = strategyStore.strategies.filter(s => s.status === 'ACTIVE').length;
+    const openOrders = orderStore.orders.filter(o => o.status === 'OPEN' || o.status === 'PENDING').length;
+    
+    // Use real data from stores (this will be populated when backend calls are successful)
+    const totalBalance = portfolioStore.totalBalance || 0;
+    const totalPnL = portfolioStore.totalPnL || 0;
+
+    setStats({
+      totalBalance,
+      totalPnL,
+      activeStrategies,
+      openOrders,
+    });
+  }, [strategyStore.strategies, orderStore.orders, portfolioStore.totalBalance, portfolioStore.totalPnL]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchBalance(),
-        refetchStrategies(),
-        refetchOrders(),
-        refetchSummary(),
-        refetchPositions && refetchPositions(),
-      ]);
+      if (user?.id) {
+        await Promise.all([
+          strategyStore.fetchStrategies(user.id),
+          orderStore.fetchOrders(user.id),
+        ]);
+      }
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  const isLoading =
-    balanceLoading || strategiesLoading || ordersLoading || summaryLoading;
+  const isLoading = strategyStore.isLoading || orderStore.isLoading;
   const totalPnLPercentage =
     stats.totalBalance > 0 ? (stats.totalPnL / stats.totalBalance) * 100 : 0;
   const isProfitable = stats.totalPnL >= 0;
 
-  // Calculate additional metrics from real data
-  const strategies = strategiesData?.data || [];
-  const orders = ordersData?.data || [];
-  const positions = positionsData?.data || [];
+  // Calculate additional metrics from store data
+  const strategies = strategyStore.strategies || [];
+  const orders = orderStore.orders || [];
+  const positions: any[] = []; // Portfolio positions will be added when portfolio store is implemented
 
   const totalTrades = strategies.reduce(
-    (sum, strategy) => sum + strategy.totalTrades,
+    (sum: number, strategy: any) => sum + (strategy.totalTrades || 0),
     0
   );
   const avgWinRate =
     strategies.length > 0
-      ? strategies.reduce((sum, strategy) => sum + strategy.winRate, 0) /
+      ? strategies.reduce((sum: number, strategy: any) => sum + (strategy.winRate || 0), 0) /
         strategies.length
       : 0;
-  const portfolioValue =
-    portfolioSummary?.balance?.portfolioValue || balance?.portfolioValue || 0;
-  const availableCash = balance?.availableCash || 0;
+  
+  // Mock portfolio data - will be replaced with real portfolio store data
+  const portfolioValue = stats.totalBalance;
+  const availableCash = stats.totalBalance * 0.3; // Mock: 30% available cash
 
   if (!user) {
     return (
@@ -491,4 +443,6 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
+});
+
+export default DashboardPage;

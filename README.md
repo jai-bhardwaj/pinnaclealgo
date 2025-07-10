@@ -23,10 +23,9 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
-## 📋 Default Login
+## 📋 Admin Login
 
-- **Email**: `demo@trading.com`
-- **Password**: `demo123`
+Use your existing admin credentials to log in to the trading platform.
 
 ## 🛠️ Built With
 
