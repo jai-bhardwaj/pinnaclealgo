@@ -30,18 +30,15 @@ jobs:
         echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
         echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}" >> .env
         echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
-        echo "NEXT_PUBLIC_ENGINE_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}" >> .env
-        echo "NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}" >> .env
-        echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}" >> .env
+        echo "NEXT_PUBLIC_ENGINE_API_URL=http://localhost:8000/api" >> .env
+        echo "NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws" >> .env
+        echo "NEXT_PUBLIC_API_URL=http://localhost:8000/api" >> .env
         # Set CI environment variable for build
         echo "CI=true" >> .env
-        # Debug: Show what we're writing (without sensitive data)
-        echo "Created .env file with environment variables"
-        echo "Environment: ${{ github.ref_name }}"
-        echo "Available secrets: DATABASE_URL, NEXTAUTH_URL, NEXTAUTH_SECRET, NEXT_PUBLIC_ENGINE_API_URL, NEXT_PUBLIC_WS_URL, DROPLET_HOST, DROPLET_USERNAME, DROPLET_SSH_KEY"
-        echo "NEXTAUTH_URL is set to: ${{ secrets.NEXTAUTH_URL }}"
-        echo "NEXT_PUBLIC_ENGINE_API_URL is set to: ${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}"
-        echo "DROPLET_HOST is set to: ${{ secrets.DROPLET_HOST }}"
+        # Debug: Show what we're writing
+        echo "Created .env file with hardcoded environment variables"
+        echo "NEXTAUTH_URL is set to: http://YOUR_DROPLET_IP:3000"
+        echo "NEXT_PUBLIC_ENGINE_API_URL is set to: http://localhost:8000"
         
     - name: Generate Prisma client
       run: npx prisma generate
