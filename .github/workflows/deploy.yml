@@ -48,11 +48,27 @@ jobs:
     - name: Create deployment package
       run: |
         mkdir -p deploy
-        cp -r .next/static deploy/
-        cp -r .next/standalone deploy/
+        # Copy the entire .next folder (contains the built application)
+        cp -r .next deploy/
+        # Copy public assets
         cp -r public deploy/
+        # Copy package.json for dependencies
         cp package.json deploy/
+        # Copy package-lock.json for exact dependency versions
+        cp package-lock.json deploy/
+        # Copy environment file
         cp .env deploy/
+        # Copy ecosystem.config.js if it exists (for PM2 configuration)
+        if [ -f ecosystem.config.js ]; then
+          cp ecosystem.config.js deploy/
+        fi
+        # Copy any other necessary config files
+        if [ -f next.config.js ]; then
+          cp next.config.js deploy/
+        fi
+        if [ -f prisma ]; then
+          cp -r prisma deploy/
+        fi
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -101,8 +117,14 @@ jobs:
         script: |
           cd /var/www/pinnacle-frontend
           
-          # Set proper permissions for new deployment
-          chmod +x server.js
+          # Install dependencies if needed
+          npm ci --only=production
+          
+          # Generate Prisma client on the server
+          npx prisma generate
+          
+          # Set proper permissions
+          chmod +x .next/standalone/server.js
           
           # Restart PM2 process with new code
           pm2 restart pinnacle-frontend || pm2 start ecosystem.config.js
