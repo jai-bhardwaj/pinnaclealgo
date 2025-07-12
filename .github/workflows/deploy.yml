@@ -58,16 +58,18 @@ jobs:
         cp package-lock.json deploy/
         # Copy environment file
         cp .env deploy/
-        # Copy ecosystem.config.js if it exists (for PM2 configuration)
-        if [ -f ecosystem.config.js ]; then
-          cp ecosystem.config.js deploy/
-        fi
+        # Copy ecosystem.config.js for PM2 configuration
+        cp ecosystem.config.js deploy/
         # Copy any other necessary config files
         if [ -f next.config.js ]; then
           cp next.config.js deploy/
         fi
         if [ -f prisma ]; then
           cp -r prisma deploy/
+        fi
+        # Copy standalone output if it exists (for standalone deployments)
+        if [ -d .next/standalone ]; then
+          cp -r .next/standalone deploy/
         fi
         
     - name: Upload build artifacts
@@ -123,11 +125,16 @@ jobs:
           # Generate Prisma client on the server
           npx prisma generate
           
-          # Set proper permissions
-          chmod +x .next/standalone/server.js
+          # Create PM2 log directory if it doesn't exist
+          sudo mkdir -p /var/log/pm2
+          sudo chown $USER:$USER /var/log/pm2
           
-          # Restart PM2 process with new code
-          pm2 restart pinnacle-frontend || pm2 start ecosystem.config.js
+          # Stop existing PM2 process if running
+          pm2 stop pinnacle-frontend || true
+          pm2 delete pinnacle-frontend || true
+          
+          # Start PM2 process with ecosystem config
+          pm2 start ecosystem.config.js
           pm2 save
           
           # Quick nginx reload (in case of any changes)
