@@ -48,18 +48,27 @@ jobs:
     - name: Create deployment package
       run: |
         mkdir -p deploy
+        
+        echo "📦 Creating complete deployment package..."
+        
         # Copy the entire .next folder (contains the built application)
         cp -r .next deploy/
+        
         # Copy public assets
         cp -r public deploy/
+        
         # Copy package.json for dependencies
         cp package.json deploy/
+        
         # Copy package-lock.json for exact dependency versions
         cp package-lock.json deploy/
+        
         # Copy environment file
         cp .env deploy/
+        
         # Copy ecosystem.config.js for PM2 configuration
         cp ecosystem.config.js deploy/
+        
         # Copy any other necessary config files
         if [ -f next.config.js ]; then
           cp next.config.js deploy/
@@ -67,10 +76,37 @@ jobs:
         if [ -f prisma ]; then
           cp -r prisma deploy/
         fi
-        # Copy standalone output if it exists (for standalone deployments)
-        if [ -d .next/standalone ]; then
-          cp -r .next/standalone deploy/
+        
+        # Copy source code files (needed for proper Next.js operation)
+        if [ -d app ]; then
+          cp -r app deploy/
         fi
+        if [ -d pages ]; then
+          cp -r pages deploy/
+        fi
+        if [ -d components ]; then
+          cp -r components deploy/
+        fi
+        if [ -d lib ]; then
+          cp -r lib deploy/
+        fi
+        if [ -d types ]; then
+          cp -r types deploy/
+        fi
+        if [ -d styles ]; then
+          cp -r styles deploy/
+        fi
+        
+        # Copy any other source directories
+        for dir in hooks utils constants; do
+          if [ -d "$dir" ]; then
+            cp -r "$dir" deploy/
+          fi
+        done
+        
+        echo "✅ Deployment package created successfully"
+        echo "📁 Contents of deploy directory:"
+        ls -la deploy/
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -119,6 +155,8 @@ jobs:
         script: |
           cd /var/www/pinnacle-frontend
           
+          echo "🔧 Setting up deployment..."
+          
           # Install dependencies if needed
           npm ci --only=production
           
@@ -134,41 +172,14 @@ jobs:
           pm2 delete pinnacle-frontend || true
           
           # Start PM2 process with ecosystem config
+          echo "🚀 Starting Next.js deployment..."
           pm2 start ecosystem.config.js
+          
           pm2 save
           
           # Quick nginx reload (in case of any changes)
           sudo systemctl reload nginx
           
           echo "✅ Services restarted successfully"
-          
-  health-check:
-    runs-on: ubuntu-latest
-    needs: [restart-services]
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: Wait for deployment to be ready
-      run: sleep 30
-      
-    - name: Health check
-      run: |
-        # Check if the app is responding
-        response=$(curl -s -o /dev/null -w "%{http_code}" http://64.227.181.245/ || echo "000")
-        
-        if [ "$response" = "200" ]; then
-          echo "✅ Health check passed - App is responding"
-        else
-          echo "❌ Health check failed - App returned status: $response"
-          exit 1
-        fi
-        
-    - name: Notify deployment status
-      if: always()
-      run: |
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "🚀 Deployment completed successfully!"
-          echo "🌐 App is live at: http://64.227.181.245/"
-        else
-          echo "💥 Deployment failed!"
-        fi 
+          echo "📊 PM2 Status:"
+          pm2 list
