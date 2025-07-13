@@ -3,7 +3,7 @@ module.exports = {
   apps: [
     {
       name: "pinnacle-frontend", // Your application name
-      script: "./.next/standalone/server.js", // Path to the standalone server
+      script: "./server.js", // Path to the standalone server
       instances: "max", // Run as many instances as CPU cores
       exec_mode: "cluster", // Use cluster mode for load balancing across cores
       // Optional: Log files for PM2
