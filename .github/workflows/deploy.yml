@@ -45,6 +45,19 @@ jobs:
     - name: Build Next.js application with standalone output
       run: npm run build
 
+    - name: Copy static files to standalone build
+      run: |
+        echo "📁 Copying static files to standalone build..."
+        # Create the static directory in standalone if it doesn't exist
+        mkdir -p .next/standalone/.next/static
+        # Copy static files (CSS, JS chunks, media)
+        cp -r .next/static/* .next/standalone/.next/static/
+        # Copy public directory if it exists
+        if [ -d "public" ]; then
+          cp -r public .next/standalone/
+        fi
+        echo "✅ Static files copied successfully"
+
     # --- ADD THIS NEW DEBUG STEP ---
     - name: Debug Next.js Standalone Build Output
       run: |
@@ -132,6 +145,14 @@ jobs:
           cd "$DEPLOY_PATH"
 
           echo "🔧 Setting up deployment on Droplet..."
+
+          # Verify the deployment structure
+          echo "📁 Checking deployment structure..."
+          ls -la
+          echo "📁 Checking .next/standalone structure..."
+          ls -la .next/standalone/ || echo "Standalone directory not found"
+          echo "📁 Checking static files..."
+          ls -la .next/standalone/.next/static/ || echo "Static directory not found"
 
           export NVM_DIR="$HOME/.nvm"
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || { echo "NVM not found or not sourced. Please ensure NVM is correctly set up."; exit 1; }
