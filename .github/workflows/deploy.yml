@@ -45,6 +45,27 @@ jobs:
     - name: Build Next.js application with standalone output
       run: npm run build
 
+    # --- ADD THIS NEW DEBUG STEP ---
+    - name: Debug Next.js Standalone Build Output
+      run: |
+        echo "Listing contents of the main .next directory:"
+        ls -la .next/
+        echo "---"
+        echo "Listing contents of .next/standalone/ (expected root of standalone build):"
+        ls -la .next/standalone/
+        echo "---"
+        echo "Listing contents of .next/standalone/.next/ (expected nested .next directory):"
+        # Use || true to prevent the step from failing if the directory doesn't exist yet
+        ls -la .next/standalone/.next/ || true
+        echo "---"
+        echo "Listing contents of .next/standalone/.next/static/ (expected static assets):"
+        ls -la .next/standalone/.next/static/ || true
+        echo "---"
+        echo "Listing contents of .next/standalone/public/ (expected public assets):"
+        ls -la .next/standalone/public/ || true
+        echo "---"
+    # --- END OF NEW DEBUG STEP ---
+
     - name: Create deployment package (Standalone Output)
       run: |
         DEPLOY_DIR="deploy_package"
