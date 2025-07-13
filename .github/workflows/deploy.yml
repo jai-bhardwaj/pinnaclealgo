@@ -1,195 +1,71 @@
 # .github/workflows/deploy.yml
-name: Build and Deploy to DigitalOcean
+name: Build and Deploy Full Repo to DigitalOcean
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    environment: production
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20' # Using Node.js 20 LTS
+        node-version: '20'
         cache: 'npm'
-
+        
     - name: Install dependencies
       run: npm ci
 
-    - name: Create environment file
-      run: |
-        cat > .env <<EOF
-        NODE_ENV=production
-        DATABASE_URL=${{ secrets.DATABASE_URL }}
-        NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
-        NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-        NEXT_PUBLIC_ENGINE_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}
-        NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
-        NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-        CI=true
-        NEXT_TELEMETRY_DISABLED=1
-        EOF
-
     - name: Generate Prisma client
       run: npx prisma generate
-
-    - name: Build Next.js application with standalone output
+      
+    - name: Build application
       run: npm run build
+      env:
+        NODE_ENV: production
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        NEXT_PUBLIC_ENGINE_API_URL: ${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}
+        NEXT_PUBLIC_WS_URL: ${{ secrets.NEXT_PUBLIC_WS_URL }}
+        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        CI: true
+        NEXT_TELEMETRY_DISABLED: 1
 
-    - name: Copy static files to standalone build
+    - name: Archive project
       run: |
-        echo "📁 Copying static files to standalone build..."
-        # Create the static directory in standalone if it doesn't exist
-        mkdir -p .next/standalone/.next/static
-        # Copy static files (CSS, JS chunks, media)
-        cp -r .next/static/* .next/standalone/.next/static/
-        # Copy public directory if it exists
-        if [ -d "public" ]; then
-          cp -r public .next/standalone/
-        fi
-        echo "✅ Static files copied successfully"
+        tar --exclude='./node_modules' --exclude='./.git' -czf app.tar.gz .
 
-    # --- ADD THIS NEW DEBUG STEP ---
-    - name: Debug Next.js Standalone Build Output
-      run: |
-        echo "Listing contents of the main .next directory:"
-        ls -la .next/
-        echo "---"
-        echo "Listing contents of .next/standalone/ (expected root of standalone build):"
-        ls -la .next/standalone/
-        echo "---"
-        echo "Listing contents of .next/standalone/.next/ (expected nested .next directory):"
-        # Use || true to prevent the step from failing if the directory doesn't exist yet
-        ls -la .next/standalone/.next/ || true
-        echo "---"
-        echo "Listing contents of .next/standalone/.next/static/ (expected static assets):"
-        ls -la .next/standalone/.next/static/ || true
-        echo "---"
-        echo "Listing contents of .next/standalone/public/ (expected public assets):"
-        ls -la .next/standalone/public/ || true
-        echo "---"
-    # --- END OF NEW DEBUG STEP ---
-
-    - name: Create deployment package (Standalone Output)
-      run: |
-        DEPLOY_DIR="deploy_package"
-        mkdir -p "$DEPLOY_DIR"
-
-        echo "📦 Creating essential Next.js standalone deployment package..."
-
-        # Copy the entire standalone directory structure
-        cp -r .next/standalone/* "$DEPLOY_DIR/"
-        
-        # Ensure .next directory exists in deploy package
-        mkdir -p "$DEPLOY_DIR/.next"
-        
-        # Copy the .next directory from standalone to deploy package
-        cp -r .next/standalone/.next/* "$DEPLOY_DIR/.next/"
-        
-        # Copy additional files
-        cp .env "$DEPLOY_DIR/"
-        cp ecosystem.config.js "$DEPLOY_DIR/"
-        [ -f next.config.js ] && cp next.config.js "$DEPLOY_DIR/"
-
-        echo "✅ Deployment package created successfully"
-        echo "📁 Contents of $DEPLOY_DIR directory:"
-        ls -la "$DEPLOY_DIR/"
-        echo "📁 Contents of $DEPLOY_DIR/.next directory:"
-        ls -la "$DEPLOY_DIR/.next/"
-        echo "📁 Contents of $DEPLOY_DIR/.next/static directory:"
-        ls -la "$DEPLOY_DIR/.next/static/"
-        echo "📁 Contents of $DEPLOY_DIR/node_modules:"
-        ls -la "$DEPLOY_DIR/node_modules" | head -5
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: nextjs-standalone-build
-        path: deploy_package/
-        retention-days: 1
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    environment: production
-
-    steps:
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: nextjs-standalone-build
-        path: ./downloaded_artifacts
-
-    - name: Deploy to DigitalOcean droplet
-      uses: appleboy/scp-action@v0.1.4
+    - name: Upload to server
+      uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.DROPLET_HOST }}
         username: ${{ secrets.DROPLET_USERNAME }}
         key: ${{ secrets.DROPLET_SSH_KEY }}
-        source: "./downloaded_artifacts/*"
-        target: "/var/www/pinnacle-frontend"
-        strip_components: 1
+        port: ${{ secrets.DROPLET_PORT || 22 }}
+        source: "app.tar.gz"
+        target: "/opt/pinnacle-algo"
 
-  restart-services:
-    runs-on: ubuntu-latest
-    needs: [deploy]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-
-    steps:
-    - name: Restart application services
-      uses: appleboy/ssh-action@v0.1.5
+    - name: Deploy and start app
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.DROPLET_HOST }}
         username: ${{ secrets.DROPLET_USERNAME }}
         key: ${{ secrets.DROPLET_SSH_KEY }}
+        port: ${{ secrets.DROPLET_PORT || 22 }}
         script: |
-          DEPLOY_PATH="/var/www/pinnacle-frontend"
-          cd "$DEPLOY_PATH"
-
-          echo "🔧 Setting up deployment on Droplet..."
-
-          # Verify the deployment structure
-          echo "📁 Checking deployment structure..."
-          ls -la
-          echo "📁 Checking .next/standalone structure..."
-          ls -la .next/standalone/ || echo "Standalone directory not found"
-          echo "📁 Checking static files..."
-          ls -la .next/standalone/.next/static/ || echo "Static directory not found"
-
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || { echo "NVM not found or not sourced. Please ensure NVM is correctly set up."; exit 1; }
-          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-          nvm install 20 --lts || true
-          nvm use 20
-
-          echo "✅ Node.js environment configured."
-
-          sudo mkdir -p /var/log/pm2
-          sudo chown $USER:$USER /var/log/pm2
-
-          pm2 stop pinnacle-frontend || true
-          pm2 delete pinnacle-frontend || true
-
-          echo "🚀 Starting Next.js deployment with PM2..."
-          pm2 start ecosystem.config.js
-
+          cd /opt/pinnacle-algo
+          tar -xzf app.tar.gz && rm app.tar.gz
+          npm install --omit=dev
+          pm2 restart pinnacle-algo || pm2 start npm --name "pinnacle-algo" -- run start
           pm2 save
-
-          echo "Reloading Nginx (if configured)..."
-          sudo systemctl reload nginx
-
-          echo "✅ Services restarted successfully"
-          echo "📊 PM2 Status:"
-          pm2 list
+          pm2 status
