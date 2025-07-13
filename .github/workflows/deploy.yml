@@ -86,7 +86,16 @@ jobs:
 
         echo "📦 Creating essential Next.js standalone deployment package..."
 
+        # Copy the entire standalone directory structure
         cp -r .next/standalone/* "$DEPLOY_DIR/"
+        
+        # Ensure .next directory exists in deploy package
+        mkdir -p "$DEPLOY_DIR/.next"
+        
+        # Copy the .next directory from standalone to deploy package
+        cp -r .next/standalone/.next/* "$DEPLOY_DIR/.next/"
+        
+        # Copy additional files
         cp .env "$DEPLOY_DIR/"
         cp ecosystem.config.js "$DEPLOY_DIR/"
         [ -f next.config.js ] && cp next.config.js "$DEPLOY_DIR/"
@@ -94,8 +103,12 @@ jobs:
         echo "✅ Deployment package created successfully"
         echo "📁 Contents of $DEPLOY_DIR directory:"
         ls -la "$DEPLOY_DIR/"
-        ls -la "$DEPLOY_DIR/.next/static"
-        ls -la "$DEPLOY_DIR/node_modules"
+        echo "📁 Contents of $DEPLOY_DIR/.next directory:"
+        ls -la "$DEPLOY_DIR/.next/"
+        echo "📁 Contents of $DEPLOY_DIR/.next/static directory:"
+        ls -la "$DEPLOY_DIR/.next/static/"
+        echo "📁 Contents of $DEPLOY_DIR/node_modules:"
+        ls -la "$DEPLOY_DIR/node_modules" | head -5
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
