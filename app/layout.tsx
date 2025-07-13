@@ -1,10 +1,5 @@
-"use client";
-
 import { Inter } from "next/font/google";
-import { SessionProvider } from "next-auth/react";
-import { UserProvider } from "@/contexts/user-context";
-import { TRPCProvider } from "@/components/providers/trpc-provider";
-import { StoreProvider } from "@/stores";
+import { Providers } from "@/components/providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
 
@@ -17,15 +12,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <ErrorBoundary>
-          <TRPCProvider>
-            <SessionProvider>
-              <StoreProvider>
-                <UserProvider>{children}</UserProvider>
-              </StoreProvider>
-            </SessionProvider>
-          </TRPCProvider>
+          <Providers>{children}</Providers>
         </ErrorBoundary>
       </body>
     </html>

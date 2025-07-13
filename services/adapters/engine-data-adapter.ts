@@ -289,18 +289,32 @@ export class EngineDataAdapter {
     return orderType === "MARKET" ? OrderType.MARKET : OrderType.LIMIT;
   }
 
-  private static mapApiOrderStatus(status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED"): FrontendOrderStatus {
+  static mapApiOrderStatus(status: string): FrontendOrderStatus {
     switch (status) {
       case "PENDING":
         return FrontendOrderStatus.PENDING;
-      case "COMPLETED":
+      case "PLACED":
+        return FrontendOrderStatus.PLACED;
+      case "OPEN":
+        return FrontendOrderStatus.OPEN;
+      case "COMPLETE":
         return FrontendOrderStatus.COMPLETE;
-      case "FAILED":
-        return FrontendOrderStatus.REJECTED;
       case "CANCELLED":
         return FrontendOrderStatus.CANCELLED;
+      case "REJECTED":
+        return FrontendOrderStatus.REJECTED;
+      case "ERROR":
+        return FrontendOrderStatus.ERROR;
+      case "QUEUED":
+        return FrontendOrderStatus.QUEUED;
+      case "UNKNOWN":
+        return FrontendOrderStatus.UNKNOWN;
+      case "FAILED":
+        return FrontendOrderStatus.REJECTED;
+      case "NULL":
+      case "DEFAULT":
       default:
-        return FrontendOrderStatus.PENDING;
+        return FrontendOrderStatus.UNKNOWN;
     }
   }
 
@@ -380,3 +394,4 @@ export class EngineDataAdapter {
 }
 
 export default EngineDataAdapter;
+

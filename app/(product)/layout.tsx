@@ -44,7 +44,7 @@ export default function ProductLayout({
         <SidebarProvider>
             <AppSidebar />
             <SidebarInset>
-                <main className="flex-1 overflow-auto">
+                <main className="flex-1 overflow-auto" suppressHydrationWarning>
                     {children}
                 </main>
             </SidebarInset>

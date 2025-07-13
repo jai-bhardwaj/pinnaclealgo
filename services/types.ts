@@ -86,6 +86,8 @@ export enum OrderStatus {
   CANCELLED = "CANCELLED",
   REJECTED = "REJECTED",
   ERROR = "ERROR",
+  QUEUED = "QUEUED",
+  UNKNOWN = "UNKNOWN",
 }
 
 export enum NotificationType {
