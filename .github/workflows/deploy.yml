@@ -87,9 +87,27 @@ jobs:
     - name: Build application
       run: npm run build
 
-    - name: Archive project
+    - name: Prepare deployment directory
       run: |
-        tar --exclude='./node_modules' --exclude='./.git' -czf app.tar.gz .
+        # Create a clean deployment directory
+        mkdir -p deployment
+        # Copy all files except exclusions
+        rsync -av --exclude='node_modules' \
+                  --exclude='.git' \
+                  --exclude='.next/cache' \
+                  --exclude='.next/trace' \
+                  --exclude='.env.local' \
+                  --exclude='.env.development' \
+                  --exclude='.env.test' \
+                  --exclude='*.log' \
+                  --exclude='*.tmp' \
+                  --exclude='deployment' \
+                  ./ deployment/
+
+    - name: Create deployment archive
+      run: |
+        # Create archive from the prepared directory
+        tar -czf app.tar.gz -C deployment .
 
     - name: Upload to server
       uses: appleboy/scp-action@v0.1.7
