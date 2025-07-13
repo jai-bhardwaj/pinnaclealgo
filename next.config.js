@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add your custom Next.js config here
-}
+  // Other Next.js configurations...
+  output: 'standalone', // Enables the standalone output mode
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

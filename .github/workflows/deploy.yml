@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 name: Build and Deploy to DigitalOcean
 
 on:
@@ -10,109 +11,63 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20' # Using Node.js 20 LTS
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
+
     - name: Create environment file
       run: |
-        echo "NODE_ENV=production" >> .env
-        echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-        echo "NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}" >> .env
-        echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
-        echo "NEXT_PUBLIC_ENGINE_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}" >> .env
-        echo "NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}" >> .env
-        echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}" >> .env
-        echo "CI=true" >> .env
-        echo "NEXT_TELEMETRY_DISABLED=1" >> .env
-        
+        cat > .env <<EOF
+        NODE_ENV=production
+        DATABASE_URL=${{ secrets.DATABASE_URL }}
+        NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+        NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+        NEXT_PUBLIC_ENGINE_API_URL=${{ secrets.NEXT_PUBLIC_ENGINE_API_URL }}
+        NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
+        NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+        CI=true
+        NEXT_TELEMETRY_DISABLED=1
+        EOF
+
     - name: Generate Prisma client
       run: npx prisma generate
-      
-    - name: Build application
+
+    - name: Build Next.js application with standalone output
+      run: npm run build
+
+    - name: Create deployment package (Standalone Output)
       run: |
-        # Next.js will automatically load the .env file we created above
-        # No need to manually export variables - they're already in .env
-        npm run build
-        
-    - name: Create deployment package
-      run: |
-        mkdir -p deploy
-        
-        echo "📦 Creating complete deployment package..."
-        
-        # Copy the entire .next folder (contains the built application)
-        cp -r .next deploy/
-        
-        # Copy public assets
-        cp -r public deploy/
-        
-        # Copy package.json for dependencies
-        cp package.json deploy/
-        
-        # Copy package-lock.json for exact dependency versions
-        cp package-lock.json deploy/
-        
-        # Copy environment file
-        cp .env deploy/
-        
-        # Copy ecosystem.config.js for PM2 configuration
-        cp ecosystem.config.js deploy/
-        
-        # Copy any other necessary config files
-        if [ -f next.config.js ]; then
-          cp next.config.js deploy/
-        fi
-        if [ -f prisma ]; then
-          cp -r prisma deploy/
-        fi
-        
-        # Copy source code files (needed for proper Next.js operation)
-        if [ -d app ]; then
-          cp -r app deploy/
-        fi
-        if [ -d pages ]; then
-          cp -r pages deploy/
-        fi
-        if [ -d components ]; then
-          cp -r components deploy/
-        fi
-        if [ -d lib ]; then
-          cp -r lib deploy/
-        fi
-        if [ -d types ]; then
-          cp -r types deploy/
-        fi
-        if [ -d styles ]; then
-          cp -r styles deploy/
-        fi
-        
-        # Copy any other source directories
-        for dir in hooks utils constants; do
-          if [ -d "$dir" ]; then
-            cp -r "$dir" deploy/
-          fi
-        done
-        
+        DEPLOY_DIR="deploy_package"
+        mkdir -p "$DEPLOY_DIR"
+
+        echo "📦 Creating essential Next.js standalone deployment package..."
+
+        cp -r .next/standalone/* "$DEPLOY_DIR/"
+        cp .env "$DEPLOY_DIR/"
+        cp ecosystem.config.js "$DEPLOY_DIR/"
+        [ -f next.config.js ] && cp next.config.js "$DEPLOY_DIR/"
+
         echo "✅ Deployment package created successfully"
-        echo "📁 Contents of deploy directory:"
-        ls -la deploy/
-        
+        echo "📁 Contents of $DEPLOY_DIR directory:"
+        ls -la "$DEPLOY_DIR/"
+        ls -la "$DEPLOY_DIR/.next/static"
+        ls -la "$DEPLOY_DIR/node_modules"
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: build-artifacts
-        path: deploy/
+        name: nextjs-standalone-build
+        path: deploy_package/
         retention-days: 1
 
   deploy:
@@ -120,32 +75,31 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     environment: production
-    
+
     steps:
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: build-artifacts
-        path: deploy/
-        
+        name: nextjs-standalone-build
+        path: ./downloaded_artifacts
+
     - name: Deploy to DigitalOcean droplet
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.DROPLET_HOST }}
         username: ${{ secrets.DROPLET_USERNAME }}
         key: ${{ secrets.DROPLET_SSH_KEY }}
-        source: "deploy/*"
+        source: "./downloaded_artifacts/*"
         target: "/var/www/pinnacle-frontend"
         strip_components: 1
 
-  # Regular restart job - runs on every deployment
   restart-services:
     runs-on: ubuntu-latest
     needs: [deploy]
     if: github.ref == 'refs/heads/main'
     environment: production
-    
-    steps:        
+
+    steps:
     - name: Restart application services
       uses: appleboy/ssh-action@v0.1.5
       with:
@@ -153,33 +107,34 @@ jobs:
         username: ${{ secrets.DROPLET_USERNAME }}
         key: ${{ secrets.DROPLET_SSH_KEY }}
         script: |
-          cd /var/www/pinnacle-frontend
-          
-          echo "🔧 Setting up deployment..."
-          
-          # Install dependencies if needed
-          npm ci --only=production
-          
-          # Generate Prisma client on the server
-          npx prisma generate
-          
-          # Create PM2 log directory if it doesn't exist
+          DEPLOY_PATH="/var/www/pinnacle-frontend"
+          cd "$DEPLOY_PATH"
+
+          echo "🔧 Setting up deployment on Droplet..."
+
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" || { echo "NVM not found or not sourced. Please ensure NVM is correctly set up."; exit 1; }
+          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+          nvm install 20 --lts || true
+          nvm use 20
+
+          echo "✅ Node.js environment configured."
+
           sudo mkdir -p /var/log/pm2
           sudo chown $USER:$USER /var/log/pm2
-          
-          # Stop existing PM2 process if running
+
           pm2 stop pinnacle-frontend || true
           pm2 delete pinnacle-frontend || true
-          
-          # Start PM2 process with ecosystem config
-          echo "🚀 Starting Next.js deployment..."
+
+          echo "🚀 Starting Next.js deployment with PM2..."
           pm2 start ecosystem.config.js
-          
+
           pm2 save
-          
-          # Quick nginx reload (in case of any changes)
+
+          echo "Reloading Nginx (if configured)..."
           sudo systemctl reload nginx
-          
+
           echo "✅ Services restarted successfully"
           echo "📊 PM2 Status:"
           pm2 list

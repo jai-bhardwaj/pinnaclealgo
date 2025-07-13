@@ -1,20 +1,20 @@
+// ecosystem.config.js
 module.exports = {
-  apps: [{
-    name: 'pinnacle-frontend',
-    script: 'node_modules/next/dist/bin/next',
-    args: 'start',
-    cwd: '/var/www/pinnacle-frontend',
-    instances: 1,
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'production',
-      PORT: 3000
+  apps: [
+    {
+      name: "pinnacle-frontend", // Your application name
+      script: "./.next/standalone/server.js", // Path to the standalone server
+      instances: "max", // Run as many instances as CPU cores
+      exec_mode: "cluster", // Use cluster mode for load balancing across cores
+      // Optional: Log files for PM2
+      error_file: "/var/log/pm2/pinnacle-frontend-err.log",
+      out_file: "/var/log/pm2/pinnacle-frontend-out.log",
+      merge_logs: true,
+      env: {
+        NODE_ENV: "production",
+        // Environment variables needed at runtime for your Next.js app
+      },
+      max_memory_restart: "1G", // Set max memory to 1GB
     },
-    error_file: '/var/log/pm2/pinnacle-frontend-error.log',
-    out_file: '/var/log/pm2/pinnacle-frontend-out.log',
-    log_file: '/var/log/pm2/pinnacle-frontend-combined.log',
-    time: true
-  }]
-} 
+  ],
+};
