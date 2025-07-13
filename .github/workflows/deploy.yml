@@ -1,15 +1,13 @@
 # .github/workflows/deploy.yml
-name: Build and Deploy Full Repo to DigitalOcean
+name: Build and Deploy to DigitalOcean
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     environment: production
     
@@ -40,58 +38,15 @@ jobs:
         NEXT_TELEMETRY_DISABLED=1
         EOF
 
-    - name: Debug environment variables
-      run: |
-        echo "=== Environment Variable Debug ==="
-        echo "NODE_ENV: $NODE_ENV"
-        echo "CI: $CI"
-        
-        if [ -z "${{ secrets.NEXTAUTH_URL }}" ]; then
-          echo "❌ NEXTAUTH_URL is NOT set in GitHub secrets"
-        else
-          echo "✅ NEXTAUTH_URL is set in GitHub secrets"
-          echo "NEXTAUTH_URL length: ${#NEXTAUTH_URL}"
-          echo "NEXTAUTH_URL first 10 chars: ${NEXTAUTH_URL:0:10}..."
-          
-          # Test if it's a valid URL
-          if [[ $NEXTAUTH_URL =~ ^https?:// ]]; then
-            echo "✅ NEXTAUTH_URL has valid protocol (http/https)"
-          else
-            echo "❌ NEXTAUTH_URL missing protocol (should start with http:// or https://)"
-          fi
-        fi
-        
-        if [ -z "${{ secrets.NEXTAUTH_SECRET }}" ]; then
-          echo "❌ NEXTAUTH_SECRET is NOT set in GitHub secrets"
-        else
-          echo "✅ NEXTAUTH_SECRET is set in GitHub secrets"
-          echo "NEXTAUTH_SECRET length: ${#NEXTAUTH_SECRET}"
-        fi
-        
-        if [ -z "${{ secrets.DATABASE_URL }}" ]; then
-          echo "❌ DATABASE_URL is NOT set in GitHub secrets"
-        else
-          echo "✅ DATABASE_URL is set in GitHub secrets"
-          echo "DATABASE_URL length: ${#DATABASE_URL}"
-        fi
-        
-        echo "=== End Debug ==="
-      env:
-        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
     - name: Generate Prisma client
       run: npx prisma generate
       
     - name: Build application
       run: npm run build
 
-    - name: Prepare deployment directory
+    - name: Prepare deployment package
       run: |
-        # Create a clean deployment directory
         mkdir -p deployment
-        # Copy all files except exclusions
         rsync -av --exclude='node_modules' \
                   --exclude='.git' \
                   --exclude='.next/cache' \
@@ -105,9 +60,7 @@ jobs:
                   ./ deployment/
 
     - name: Create deployment archive
-      run: |
-        # Create archive from the prepared directory
-        tar -czf app.tar.gz -C deployment .
+      run: tar -czf app.tar.gz -C deployment .
 
     - name: Upload to server
       uses: appleboy/scp-action@v0.1.7
@@ -119,7 +72,39 @@ jobs:
         source: "app.tar.gz"
         target: "/opt/pinnacle-algo"
 
-    - name: Deploy and start app
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    
+    steps:
+    - name: Setup server environment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DROPLET_HOST }}
+        username: ${{ secrets.DROPLET_USERNAME }}
+        key: ${{ secrets.DROPLET_SSH_KEY }}
+        port: ${{ secrets.DROPLET_PORT || 22 }}
+        script: |
+          # Install Node.js if not present
+          if ! command -v node &> /dev/null; then
+            echo "Installing Node.js..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
+          
+          # Install PM2 if not present
+          if ! command -v pm2 &> /dev/null; then
+            echo "Installing PM2..."
+            sudo npm install -g pm2
+          fi
+          
+          # Verify installations
+          echo "Node.js version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "PM2 version: $(pm2 --version)"
+
+    - name: Deploy application
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.DROPLET_HOST }}
@@ -128,8 +113,18 @@ jobs:
         port: ${{ secrets.DROPLET_PORT || 22 }}
         script: |
           cd /opt/pinnacle-algo
+          
+          # Extract deployment package
           tar -xzf app.tar.gz && rm app.tar.gz
+          
+          # Install production dependencies
           npm install --omit=dev
+          
+          # Restart or start the application
           pm2 restart pinnacle-algo || pm2 start npm --name "pinnacle-algo" -- run start
+          
+          # Save PM2 configuration
           pm2 save
+          
+          # Show status
           pm2 status
