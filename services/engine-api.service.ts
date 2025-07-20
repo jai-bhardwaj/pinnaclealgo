@@ -466,6 +466,22 @@ class TradingEngineApiService {
     });
   }
 
+  async pauseStrategy(
+    strategyId: string
+  ): Promise<ApiResponse<UserStrategy>> {
+    return this.makeRequest<UserStrategy>(`/user/pause/${strategyId}`, {
+      method: "POST",
+    });
+  }
+
+  async resumeStrategy(
+    strategyId: string
+  ): Promise<ApiResponse<UserStrategy>> {
+    return this.makeRequest<UserStrategy>(`/user/resume/${strategyId}`, {
+      method: "POST",
+    });
+  }
+
   async getSystemStatus(): Promise<ApiResponse<EngineSystemStatus>> {
     return this.makeRequest<EngineSystemStatus>("/system/status");
   }

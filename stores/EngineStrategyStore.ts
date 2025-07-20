@@ -168,6 +168,9 @@ export class EngineStrategyStore implements StoreState {
     };
 
     try {
+      // First fetch marketplace strategies to get strategy names and details
+      await this.fetchMarketplace();
+      
       const result = await withRetry(
         () => tradingEngineApi.getUserDashboard(),
         {
