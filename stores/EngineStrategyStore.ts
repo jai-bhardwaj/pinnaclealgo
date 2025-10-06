@@ -170,7 +170,7 @@ export class EngineStrategyStore implements StoreState {
     try {
       // First fetch marketplace strategies to get strategy names and details
       await this.fetchMarketplace();
-      
+
       const result = await withRetry(
         () => tradingEngineApi.getUserDashboard(),
         {
@@ -340,26 +340,75 @@ export class EngineStrategyStore implements StoreState {
     this.setSubmitting(true);
     this.clearError();
 
+    const context: ErrorContext = {
+      action: "updateStrategy",
+      component: "EngineStrategyStore",
+      strategyId: id,
+    };
+
     try {
-      // Engine doesn't support strategy updates, so we just log for now
-      console.log("Strategy update requested (not supported by engine):", {
-        id,
-        data,
-      });
+      // Convert frontend strategy data to API format
+      const updateData = {
+        name: data.name,
+        description: data.description,
+        enabled: data.status === "ACTIVE",
+        parameters: data.parameters,
+        risk_parameters: data.riskParameters,
+        max_drawdown: data.maxDrawdown,
+        max_positions: data.maxPositions,
+        capital_allocated: data.capitalAllocated,
+      };
+
+      const result = await withRetry(
+        () => tradingEngineApi.updateStrategy(id, updateData),
+        {
+          maxAttempts: 3,
+          onRetry: (attempt, error) => {
+            console.log(
+              `Retrying updateStrategy (attempt ${attempt}):`,
+              error.message
+            );
+          },
+        }
+      );
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to update strategy");
+      }
 
       runInAction(() => {
-        console.log("Strategy update simulated successfully");
+        // Update the strategy in the local list
+        const strategyIndex = this.strategies.findIndex((s) => s.id === id);
+        if (strategyIndex !== -1) {
+          this.strategies[strategyIndex] = {
+            ...this.strategies[strategyIndex],
+            ...data,
+            updatedAt: new Date(),
+          };
+        }
+
+        // Also update in user strategies if it exists there
+        const userStrategyIndex = this.userStrategies.findIndex(
+          (s) => s.id === id
+        );
+        if (userStrategyIndex !== -1) {
+          this.userStrategies[userStrategyIndex] = {
+            ...this.userStrategies[userStrategyIndex],
+            ...data,
+            updatedAt: new Date(),
+          };
+        }
+
+        console.log("Strategy updated successfully:", result.data);
       });
 
-      return { id, ...data };
+      return result.data;
     } catch (error: unknown) {
-      const appError = classifyError(error, {
-        action: "updateStrategy",
-        component: "EngineStrategyStore",
-      });
+      const appError = classifyError(error, context);
       runInAction(() => {
         this.setAppError(appError);
       });
+      reportError(appError);
       throw appError;
     } finally {
       runInAction(() => {
@@ -368,13 +417,53 @@ export class EngineStrategyStore implements StoreState {
     }
   }
 
-  async bulkStopStrategies(strategyIds: string[]) {
+  async deleteStrategy(strategyId: string) {
     this.setSubmitting(true);
     this.clearError();
 
+    const context: ErrorContext = {
+      action: "deleteStrategy",
+      component: "EngineStrategyStore",
+      strategyId,
+    };
+
     try {
-      const promises = strategyIds.map((id) => this.deactivateStrategy(id));
-      await Promise.all(promises);
+      const result = await withRetry(
+        () => tradingEngineApi.deleteStrategy(strategyId),
+        {
+          maxAttempts: 3,
+          onRetry: (attempt, error) => {
+            console.log(
+              `Retrying deleteStrategy (attempt ${attempt}):`,
+              error.message
+            );
+          },
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete strategy");
+      }
+
+      runInAction(() => {
+        // Remove the strategy from local lists
+        this.strategies = this.strategies.filter((s) => s.id !== strategyId);
+        this.userStrategies = this.userStrategies.filter(
+          (s) => s.id !== strategyId
+        );
+        this.strategiesTotal = Math.max(0, this.strategiesTotal - 1);
+
+        console.log("Strategy deleted successfully:", strategyId);
+      });
+
+      return result.data;
+    } catch (error: unknown) {
+      const appError = classifyError(error, context);
+      runInAction(() => {
+        this.setAppError(appError);
+      });
+      reportError(appError);
+      throw appError;
     } finally {
       runInAction(() => {
         this.setSubmitting(false);

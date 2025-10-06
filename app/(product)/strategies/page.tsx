@@ -40,7 +40,9 @@ const StrategiesPage = observer(() => {
             <h2 className="text-xl font-semibold mb-2">
               Authentication Required
             </h2>
-            <p className="text-gray-600">Please log in to view your trading strategies.</p>
+            <p className="text-gray-600">
+              Please log in to view your trading strategies.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -74,7 +76,9 @@ const StrategiesPage = observer(() => {
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               <RefreshCw
-                className={`h-4 w-4 mr-2 ${strategyPageModel.isRefreshing ? "animate-spin" : ""}`}
+                className={`h-4 w-4 mr-2 ${
+                  strategyPageModel.isRefreshing ? "animate-spin" : ""
+                }`}
               />
               <span>Refresh</span>
             </Button>
@@ -141,8 +145,16 @@ const StrategiesPage = observer(() => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-light ${strategyPageModel.summaryStats.total_pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ₹{strategyPageModel.summaryStats.total_pnl?.toLocaleString() || '0'}
+              <div
+                className={`text-2xl font-light ${
+                  strategyPageModel.summaryStats.total_pnl >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                ₹
+                {strategyPageModel.summaryStats.total_pnl?.toLocaleString() ||
+                  "0"}
               </div>
               <p className="text-xs text-gray-500">All strategies</p>
             </CardContent>
@@ -154,7 +166,11 @@ const StrategiesPage = observer(() => {
           <CardContent className="p-6">
             <StrategyTable
               strategies={strategyPageModel.filteredStrategies}
-              isLoading={strategyPageModel.isLoadingStrategies && (!strategyPageModel.isRefreshing || strategyPageModel.isManualRefresh)}
+              isLoading={
+                strategyPageModel.isLoadingStrategies &&
+                (!strategyPageModel.isRefreshing ||
+                  strategyPageModel.isManualRefresh)
+              }
               error={strategyPageModel.strategiesError}
               // Pagination
               currentPage={strategyPageModel.pagination.currentPage}
@@ -162,16 +178,26 @@ const StrategiesPage = observer(() => {
               totalItems={strategyPageModel.pagination.totalItems}
               pageSize={strategyPageModel.pagination.pageSize}
               onPageChange={(page) => strategyPageModel.setCurrentPage(page)}
-              onPageSizeChange={(pageSize) => strategyPageModel.setPageSize(pageSize)}
+              onPageSizeChange={(pageSize) =>
+                strategyPageModel.setPageSize(pageSize)
+              }
               // Search and filters
               searchQuery={strategyPageModel.filters.searchQuery}
-              onSearchChange={(query) => strategyPageModel.setSearchQuery(query)}
+              onSearchChange={(query) =>
+                strategyPageModel.setSearchQuery(query)
+              }
               statusFilter={strategyPageModel.filters.statusFilter}
-              onStatusFilterChange={(status) => strategyPageModel.setStatusFilter(status)}
+              onStatusFilterChange={(status) =>
+                strategyPageModel.setStatusFilter(status)
+              }
               assetClassFilter={strategyPageModel.filters.assetClassFilter}
-              onAssetClassFilterChange={(assetClass) => strategyPageModel.setAssetClassFilter(assetClass)}
+              onAssetClassFilterChange={(assetClass) =>
+                strategyPageModel.setAssetClassFilter(assetClass)
+              }
               strategyTypeFilter={strategyPageModel.filters.strategyTypeFilter}
-              onStrategyTypeFilterChange={(strategyType) => strategyPageModel.setStrategyTypeFilter(strategyType)}
+              onStrategyTypeFilterChange={(strategyType) =>
+                strategyPageModel.setStrategyTypeFilter(strategyType)
+              }
               // Actions
               onRefresh={() => strategyPageModel.refresh()}
               onExport={() => console.log("Export strategies")}
@@ -196,8 +222,20 @@ const StrategiesPage = observer(() => {
                   console.error("Failed to pause strategy:", error);
                 }
               }}
-              onEditStrategy={(strategy) => console.log("Edit strategy:", strategy)}
-              onDeleteStrategy={(strategyId) => console.log("Delete strategy:", strategyId)}
+              onEditStrategy={async (strategy) => {
+                try {
+                  await strategyPageModel.updateStrategy(strategy.id, strategy);
+                } catch (error) {
+                  console.error("Failed to update strategy:", error);
+                }
+              }}
+              onDeleteStrategy={async (strategyId) => {
+                try {
+                  await strategyPageModel.deleteStrategy(strategyId);
+                } catch (error) {
+                  console.error("Failed to delete strategy:", error);
+                }
+              }}
               highlightNewRows={false}
             />
           </CardContent>
