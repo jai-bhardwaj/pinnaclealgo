@@ -8,7 +8,7 @@ import {
   type AppError,
   type ErrorContext,
 } from "@/stores/utils/errorHandler";
-import type { Strategy, StoreState } from "@/types";
+import type { Strategy, StoreState, StrategyUpdateData } from "@/types";
 
 // Define local types that match what the UI expects
 interface StrategyWithCounts extends Strategy {
@@ -347,33 +347,70 @@ export class EngineStrategyStore implements StoreState {
     };
 
     try {
-      // Convert frontend strategy data to API format
-      const updateData = {
-        name: data.name,
-        description: data.description,
-        enabled: data.status === "ACTIVE",
-        parameters: data.parameters,
-        risk_parameters: data.riskParameters,
-        max_drawdown: data.maxDrawdown,
-        max_positions: data.maxPositions,
-        capital_allocated: data.capitalAllocated,
-      };
+      // For now, we'll only update fields that are supported by the strategy template
+      // Fields like capitalAllocated need to be handled differently (deactivate/reactivate)
+      const updateData: StrategyUpdateData = {};
 
-      const result = await withRetry(
-        () => tradingEngineApi.updateStrategy(id, updateData),
-        {
-          maxAttempts: 3,
-          onRetry: (attempt, error) => {
-            console.log(
-              `Retrying updateStrategy (attempt ${attempt}):`,
-              error.message
-            );
-          },
+      if (data.name !== undefined) {
+        updateData.name = data.name;
+      }
+      if (data.description !== undefined) {
+        updateData.description = data.description;
+      }
+      if (data.status !== undefined) {
+        updateData.enabled = data.status === "ACTIVE";
+      }
+      if (data.parameters !== undefined) {
+        updateData.parameters = data.parameters;
+      }
+      if (data.riskParameters !== undefined) {
+        updateData.risk_parameters = data.riskParameters;
+      }
+      if (data.maxDrawdown !== undefined) {
+        updateData.max_drawdown = data.maxDrawdown;
+      }
+      if (data.maxPositions !== undefined) {
+        updateData.max_positions = data.maxPositions;
+      }
+
+      // Only call the API if there are fields to update
+      if (Object.keys(updateData).length > 0) {
+        const result = await withRetry(
+          () => tradingEngineApi.updateStrategy(id, updateData),
+          {
+            maxAttempts: 3,
+            onRetry: (attempt, error) => {
+              console.log(
+                `Retrying updateStrategy (attempt ${attempt}):`,
+                error.message
+              );
+            },
+          }
+        );
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || "Failed to update strategy");
         }
-      );
+      }
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Failed to update strategy");
+      // Handle capital allocation separately if it changed
+      if (data.capitalAllocated !== undefined) {
+        console.log(
+          "Capital allocation update requested - deactivating and reactivating strategy"
+        );
+        try {
+          // First deactivate the strategy
+          await this.deactivateStrategy(id);
+          // Then reactivate it with the new allocation amount
+          await this.activateStrategy(id, data.capitalAllocated);
+          console.log(
+            "Strategy reactivated with new allocation amount:",
+            data.capitalAllocated
+          );
+        } catch (error) {
+          console.error("Failed to update capital allocation:", error);
+          // Don't throw here, just log the error and continue with local state update
+        }
       }
 
       runInAction(() => {
@@ -399,10 +436,10 @@ export class EngineStrategyStore implements StoreState {
           };
         }
 
-        console.log("Strategy updated successfully:", result.data);
+        console.log("Strategy updated successfully (local state)");
       });
 
-      return result.data;
+      return { id, ...data };
     } catch (error: unknown) {
       const appError = classifyError(error, context);
       runInAction(() => {

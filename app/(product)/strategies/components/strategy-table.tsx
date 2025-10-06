@@ -103,6 +103,26 @@ const editStrategySchema = z.object({
 
 type EditStrategyFormData = z.infer<typeof editStrategySchema>;
 
+// Type guards for status and asset class
+const isValidStatus = (
+  status: string
+): status is "ACTIVE" | "PAUSED" | "STOPPED" | "DRAFT" | "ERROR" => {
+  return ["ACTIVE", "PAUSED", "STOPPED", "DRAFT", "ERROR"].includes(status);
+};
+
+const isValidAssetClass = (
+  assetClass: string
+): assetClass is
+  | "EQUITY"
+  | "DERIVATIVES"
+  | "CRYPTO"
+  | "COMMODITIES"
+  | "FOREX" => {
+  return ["EQUITY", "DERIVATIVES", "CRYPTO", "COMMODITIES", "FOREX"].includes(
+    assetClass
+  );
+};
+
 export interface StrategiesTableProps {
   strategies: StrategyWithCounts[];
   isLoading: boolean;
@@ -178,10 +198,26 @@ export const StrategyTable = observer(
       if (!editingStrategy) return;
 
       try {
+        // Check if capital allocation is being changed
+        const isCapitalChanging =
+          data.capitalRequired !== editingStrategy.capitalAllocated;
+
+        if (isCapitalChanging) {
+          // Show a confirmation dialog for capital allocation changes
+          const confirmed = window.confirm(
+            "Changing the capital allocation will temporarily deactivate and reactivate the strategy. This may cause a brief interruption in trading. Do you want to continue?"
+          );
+
+          if (!confirmed) {
+            return; // User cancelled
+          }
+        }
+
         // Call the update strategy method from the parent component
         await onEditStrategy({
           ...editingStrategy,
           ...data,
+          capitalAllocated: data.capitalRequired,
           updatedAt: new Date(),
         });
 
@@ -210,17 +246,22 @@ export const StrategyTable = observer(
     // Set form values when editing strategy changes
     React.useEffect(() => {
       if (editingStrategy) {
-        reset({
+        const formData: EditStrategyFormData = {
           name: editingStrategy.name,
           description: editingStrategy.description || "",
-          status: editingStrategy.status as any,
+          status: isValidStatus(editingStrategy.status)
+            ? editingStrategy.status
+            : "DRAFT",
           strategyType: editingStrategy.strategyType,
-          assetClass: editingStrategy.assetClass as any,
+          assetClass: isValidAssetClass(editingStrategy.assetClass)
+            ? editingStrategy.assetClass
+            : "EQUITY",
           maxDrawdown: editingStrategy.maxDrawdown || 0,
           capitalRequired: editingStrategy.capitalAllocated || 0,
           targetReturn: 0, // Add default value
-          riskLevel: "MEDIUM" as any, // Add default value
-        });
+          riskLevel: "MEDIUM", // Add default value
+        };
+        reset(formData);
       }
     }, [editingStrategy, reset]);
 

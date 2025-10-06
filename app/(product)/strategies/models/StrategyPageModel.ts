@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { tradingEngineApi } from "@/services/engine-api.service";
 import { EngineDataAdapter } from "@/services/adapters/engine-data-adapter";
+import type { StrategyUpdateData } from "@/types";
 
 // Local interface to avoid conflicts with tRPC types
 export interface StrategyWithCounts {
@@ -13,8 +14,8 @@ export interface StrategyWithCounts {
   symbols: string[];
   timeframe: string;
   status: string;
-  parameters: any;
-  riskParameters: any;
+  parameters: Record<string, unknown>;
+  riskParameters: Record<string, unknown>;
   totalPnl: number;
   totalTrades: number;
   winningTrades: number;
@@ -89,7 +90,19 @@ export const STRATEGY_TYPE_OPTIONS = [
 export class StrategyPageModel {
   // State
   strategies: StrategyWithCounts[] = [];
-  marketplaceStrategies: any[] = [];
+  marketplaceStrategies: Array<{
+    strategy_id: string;
+    name: string;
+    description: string;
+    category: string;
+    risk_level: string;
+    min_capital: number;
+    expected_return_annual: number;
+    max_drawdown: number;
+    symbols: string[];
+    parameters: Record<string, unknown>;
+    is_active: boolean;
+  }> = [];
   summaryStats: StrategySummaryStats = {
     total_strategies: 0,
     active_strategies: 0,
@@ -251,10 +264,20 @@ export class StrategyPageModel {
 
       // Convert user strategies to frontend format
       const userStrategies = result.data!.active_strategies.map(
-        (userStrategy: any) => {
+        (userStrategy: {
+          user_id: string;
+          strategy_id: string;
+          status: "available" | "active" | "paused";
+          activated_at: string;
+          allocation_amount: number;
+          custom_parameters: Record<string, unknown>;
+          total_orders: number;
+          successful_orders: number;
+          total_pnl: number;
+        }) => {
           // Try to find corresponding marketplace strategy
           const marketplaceStrategy = this.marketplaceStrategies.find(
-            (s: any) => s.strategy_id === userStrategy.strategy_id
+            (s) => s.strategy_id === userStrategy.strategy_id
           );
 
           const convertedStrategy = EngineDataAdapter.userStrategyToFrontend(
@@ -491,25 +514,62 @@ export class StrategyPageModel {
 
   async updateStrategy(strategyId: string, data: Partial<StrategyWithCounts>) {
     try {
-      // Convert frontend strategy data to API format
-      const updateData = {
-        name: data.name,
-        description: data.description,
-        enabled: data.status === "ACTIVE",
-        parameters: data.parameters,
-        risk_parameters: data.riskParameters,
-        max_drawdown: data.maxDrawdown,
-        max_positions: data.maxPositions,
-        capital_allocated: data.capitalAllocated,
-      };
+      // For now, we'll only update fields that are supported by the strategy template
+      // Fields like capitalAllocated need to be handled differently (deactivate/reactivate)
+      const updateData: StrategyUpdateData = {};
 
-      const result = await tradingEngineApi.updateStrategy(
-        strategyId,
-        updateData
-      );
+      if (data.name !== undefined) {
+        updateData.name = data.name;
+      }
+      if (data.description !== undefined) {
+        updateData.description = data.description;
+      }
+      if (data.status !== undefined) {
+        updateData.enabled = data.status === "ACTIVE";
+      }
+      if (data.parameters !== undefined) {
+        updateData.parameters = data.parameters;
+      }
+      if (data.riskParameters !== undefined) {
+        updateData.risk_parameters = data.riskParameters;
+      }
+      if (data.maxDrawdown !== undefined) {
+        updateData.max_drawdown = data.maxDrawdown;
+      }
+      if (data.maxPositions !== undefined) {
+        updateData.max_positions = data.maxPositions;
+      }
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Failed to update strategy");
+      // Only call the API if there are fields to update
+      if (Object.keys(updateData).length > 0) {
+        const result = await tradingEngineApi.updateStrategy(
+          strategyId,
+          updateData
+        );
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || "Failed to update strategy");
+        }
+      }
+
+      // Handle capital allocation separately if it changed
+      if (data.capitalAllocated !== undefined) {
+        console.log(
+          "Capital allocation update requested - deactivating and reactivating strategy"
+        );
+        try {
+          // First deactivate the strategy
+          await this.deactivateStrategy(strategyId);
+          // Then reactivate it with the new allocation amount
+          await this.activateStrategy(strategyId, data.capitalAllocated);
+          console.log(
+            "Strategy reactivated with new allocation amount:",
+            data.capitalAllocated
+          );
+        } catch (error) {
+          console.error("Failed to update capital allocation:", error);
+          // Don't throw here, just log the error and continue with local state update
+        }
       }
 
       // Update local state immediately
@@ -529,7 +589,7 @@ export class StrategyPageModel {
         this.updateSummaryStats();
       });
 
-      return result.data;
+      return { id: strategyId, ...data };
     } catch (error) {
       console.error("Error updating strategy:", error);
       throw error;

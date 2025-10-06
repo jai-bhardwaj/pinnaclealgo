@@ -62,6 +62,17 @@ export interface CreateStrategyRequest {
 
 export interface UpdateStrategyRequest extends Partial<CreateStrategyRequest> {}
 
+// Strategy update data interface for frontend
+export interface StrategyUpdateData {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  parameters?: Record<string, unknown>;
+  risk_parameters?: Record<string, unknown>;
+  max_drawdown?: number;
+  max_positions?: number;
+}
+
 // User Strategy Configuration
 export interface ApiUserConfig {
   id: string;
@@ -96,7 +107,8 @@ export interface CreateUserConfigRequest {
   };
 }
 
-export interface UpdateUserConfigRequest extends Partial<CreateUserConfigRequest> {}
+export interface UpdateUserConfigRequest
+  extends Partial<CreateUserConfigRequest> {}
 
 // Order Management
 export interface ApiOrder {
@@ -205,7 +217,11 @@ export interface TradeUpdateEvent {
   };
 }
 
-export type WebSocketEvent = OrderUpdateEvent | PositionUpdateEvent | StrategyUpdateEvent | TradeUpdateEvent;
+export type WebSocketEvent =
+  | OrderUpdateEvent
+  | PositionUpdateEvent
+  | StrategyUpdateEvent
+  | TradeUpdateEvent;
 
 // API Error Response
 export interface ApiErrorResponse {
