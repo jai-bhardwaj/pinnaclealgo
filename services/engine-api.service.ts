@@ -259,13 +259,18 @@ class TradingEngineApiService {
 
   // === STRATEGY MANAGEMENT ===
 
-  async getStrategies(params?: StrategyListParams): Promise<ApiResponse<ApiStrategy[]>> {
+  async getStrategies(
+    params?: StrategyListParams
+  ): Promise<ApiResponse<ApiStrategy[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.enabled !== undefined) searchParams.set('enabled', params.enabled.toString());
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.offset) searchParams.set('offset', params.offset.toString());
-    
-    const endpoint = `/strategies${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params?.enabled !== undefined)
+      searchParams.set("enabled", params.enabled.toString());
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.offset) searchParams.set("offset", params.offset.toString());
+
+    const endpoint = `/strategies${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<ApiStrategy[]>(endpoint);
   }
 
@@ -273,21 +278,28 @@ class TradingEngineApiService {
     return this.makeRequest<ApiStrategy>(`/strategies/${strategyId}`);
   }
 
-  async createStrategy(data: CreateStrategyRequest): Promise<ApiResponse<ApiStrategy>> {
+  async createStrategy(
+    data: CreateStrategyRequest
+  ): Promise<ApiResponse<ApiStrategy>> {
     return this.makeRequest<ApiStrategy>("/strategies", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateStrategy(strategyId: string, data: UpdateStrategyRequest): Promise<ApiResponse<ApiStrategy>> {
+  async updateStrategy(
+    strategyId: string,
+    data: UpdateStrategyRequest
+  ): Promise<ApiResponse<ApiStrategy>> {
     return this.makeRequest<ApiStrategy>(`/strategies/${strategyId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteStrategy(strategyId: string): Promise<ApiResponse<{ message: string }>> {
+  async deleteStrategy(
+    strategyId: string
+  ): Promise<ApiResponse<{ message: string }>> {
     return this.makeRequest<{ message: string }>(`/strategies/${strategyId}`, {
       method: "DELETE",
     });
@@ -295,35 +307,50 @@ class TradingEngineApiService {
 
   // === USER STRATEGY CONFIGURATION ===
 
-  async getUserConfigs(params?: UserConfigListParams): Promise<ApiResponse<ApiUserConfig[]>> {
+  async getUserConfigs(
+    params?: UserConfigListParams
+  ): Promise<ApiResponse<ApiUserConfig[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.user_id) searchParams.set('user_id', params.user_id);
-    if (params?.strategy_id) searchParams.set('strategy_id', params.strategy_id);
-    if (params?.enabled !== undefined) searchParams.set('enabled', params.enabled.toString());
-    
-    const endpoint = `/user-configs${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params?.user_id) searchParams.set("user_id", params.user_id);
+    if (params?.strategy_id)
+      searchParams.set("strategy_id", params.strategy_id);
+    if (params?.enabled !== undefined)
+      searchParams.set("enabled", params.enabled.toString());
+
+    const endpoint = `/user-configs${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<ApiUserConfig[]>(endpoint);
   }
 
-  async getUserConfigsByUserId(userId: string): Promise<ApiResponse<ApiUserConfig[]>> {
+  async getUserConfigsByUserId(
+    userId: string
+  ): Promise<ApiResponse<ApiUserConfig[]>> {
     return this.makeRequest<ApiUserConfig[]>(`/user-configs/${userId}`);
   }
 
-  async createUserConfig(data: CreateUserConfigRequest): Promise<ApiResponse<ApiUserConfig>> {
+  async createUserConfig(
+    data: CreateUserConfigRequest
+  ): Promise<ApiResponse<ApiUserConfig>> {
     return this.makeRequest<ApiUserConfig>("/user-configs", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateUserConfig(configId: string, data: UpdateUserConfigRequest): Promise<ApiResponse<ApiUserConfig>> {
+  async updateUserConfig(
+    configId: string,
+    data: UpdateUserConfigRequest
+  ): Promise<ApiResponse<ApiUserConfig>> {
     return this.makeRequest<ApiUserConfig>(`/user-configs/${configId}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteUserConfig(configId: string): Promise<ApiResponse<{ message: string }>> {
+  async deleteUserConfig(
+    configId: string
+  ): Promise<ApiResponse<{ message: string }>> {
     return this.makeRequest<{ message: string }>(`/user-configs/${configId}`, {
       method: "DELETE",
     });
@@ -335,29 +362,35 @@ class TradingEngineApiService {
     // If user_id is provided, use the path parameter endpoint with pagination
     if (params?.user_id) {
       const searchParams = new URLSearchParams();
-      if (params?.limit) searchParams.set('limit', params.limit.toString());
-      if (params?.offset) searchParams.set('offset', params.offset.toString());
-      if (params?.status) searchParams.set('status', params.status);
-      if (params?.start_date) searchParams.set('start_date', params.start_date);
-      if (params?.end_date) searchParams.set('end_date', params.end_date);
-      if (params?.symbol) searchParams.set('symbol', params.symbol);
-      
-      const endpoint = `/orders/${params.user_id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+      if (params?.limit) searchParams.set("limit", params.limit.toString());
+      if (params?.offset) searchParams.set("offset", params.offset.toString());
+      if (params?.status) searchParams.set("status", params.status);
+      if (params?.start_date) searchParams.set("start_date", params.start_date);
+      if (params?.end_date) searchParams.set("end_date", params.end_date);
+      if (params?.symbol) searchParams.set("symbol", params.symbol);
+
+      const endpoint = `/orders/${params.user_id}${
+        searchParams.toString() ? `?${searchParams.toString()}` : ""
+      }`;
       return this.makeRequest<ApiOrder[]>(endpoint);
     }
-    
+
     // Otherwise, use query parameters for other filters
     const searchParams = new URLSearchParams();
-    if (params?.strategy_id) searchParams.set('strategy_id', params.strategy_id);
-    if (params?.symbol) searchParams.set('symbol', params.symbol);
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.signal_type) searchParams.set('signal_type', params.signal_type);
-    if (params?.start_date) searchParams.set('start_date', params.start_date);
-    if (params?.end_date) searchParams.set('end_date', params.end_date);
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.offset) searchParams.set('offset', params.offset.toString());
-    
-    const endpoint = `/orders${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params?.strategy_id)
+      searchParams.set("strategy_id", params.strategy_id);
+    if (params?.symbol) searchParams.set("symbol", params.symbol);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.signal_type)
+      searchParams.set("signal_type", params.signal_type);
+    if (params?.start_date) searchParams.set("start_date", params.start_date);
+    if (params?.end_date) searchParams.set("end_date", params.end_date);
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.offset) searchParams.set("offset", params.offset.toString());
+
+    const endpoint = `/orders${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<ApiOrder[]>(endpoint);
   }
 
@@ -371,14 +404,16 @@ class TradingEngineApiService {
     if (!params) {
       return { success: false, error: "Missing required parameters" };
     }
-    
+
     const searchParams = new URLSearchParams();
-    if (params.status) searchParams.set('status', params.status);
-    if (params.start_date) searchParams.set('start_date', params.start_date);
-    if (params.end_date) searchParams.set('end_date', params.end_date);
-    if (params.symbol) searchParams.set('symbol', params.symbol);
-    
-    const endpoint = `/orders/${params.user_id}/summary${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params.status) searchParams.set("status", params.status);
+    if (params.start_date) searchParams.set("start_date", params.start_date);
+    if (params.end_date) searchParams.set("end_date", params.end_date);
+    if (params.symbol) searchParams.set("symbol", params.symbol);
+
+    const endpoint = `/orders/${params.user_id}/summary${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<any>(endpoint);
   }
 
@@ -395,15 +430,20 @@ class TradingEngineApiService {
 
   // === POSITION MANAGEMENT ===
 
-  async getPositions(params?: PositionListParams): Promise<ApiResponse<ApiPosition[]>> {
+  async getPositions(
+    params?: PositionListParams
+  ): Promise<ApiResponse<ApiPosition[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.user_id) searchParams.set('user_id', params.user_id);
-    if (params?.symbol) searchParams.set('symbol', params.symbol);
-    if (params?.active_only !== undefined) searchParams.set('active_only', params.active_only.toString());
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.offset) searchParams.set('offset', params.offset.toString());
-    
-    const endpoint = `/positions${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params?.user_id) searchParams.set("user_id", params.user_id);
+    if (params?.symbol) searchParams.set("symbol", params.symbol);
+    if (params?.active_only !== undefined)
+      searchParams.set("active_only", params.active_only.toString());
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.offset) searchParams.set("offset", params.offset.toString());
+
+    const endpoint = `/positions${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<ApiPosition[]>(endpoint);
   }
 
@@ -415,14 +455,16 @@ class TradingEngineApiService {
 
   async getTrades(params?: TradeListParams): Promise<ApiResponse<ApiTrade[]>> {
     const searchParams = new URLSearchParams();
-    if (params?.user_id) searchParams.set('user_id', params.user_id);
-    if (params?.symbol) searchParams.set('symbol', params.symbol);
-    if (params?.start_date) searchParams.set('start_date', params.start_date);
-    if (params?.end_date) searchParams.set('end_date', params.end_date);
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.offset) searchParams.set('offset', params.offset.toString());
-    
-    const endpoint = `/trades${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (params?.user_id) searchParams.set("user_id", params.user_id);
+    if (params?.symbol) searchParams.set("symbol", params.symbol);
+    if (params?.start_date) searchParams.set("start_date", params.start_date);
+    if (params?.end_date) searchParams.set("end_date", params.end_date);
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.offset) searchParams.set("offset", params.offset.toString());
+
+    const endpoint = `/trades${
+      searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`;
     return this.makeRequest<ApiTrade[]>(endpoint);
   }
 
@@ -466,17 +508,13 @@ class TradingEngineApiService {
     });
   }
 
-  async pauseStrategy(
-    strategyId: string
-  ): Promise<ApiResponse<UserStrategy>> {
+  async pauseStrategy(strategyId: string): Promise<ApiResponse<UserStrategy>> {
     return this.makeRequest<UserStrategy>(`/user/pause/${strategyId}`, {
       method: "POST",
     });
   }
 
-  async resumeStrategy(
-    strategyId: string
-  ): Promise<ApiResponse<UserStrategy>> {
+  async resumeStrategy(strategyId: string): Promise<ApiResponse<UserStrategy>> {
     return this.makeRequest<UserStrategy>(`/user/resume/${strategyId}`, {
       method: "POST",
     });
@@ -509,7 +547,8 @@ class TradingEngineApiService {
 
 // Create singleton instance
 const engineConfig: EngineConfig = {
-  baseUrl: process.env.NEXT_PUBLIC_ENGINE_API_URL || "http://localhost:8000",
+  baseUrl:
+    process.env.NEXT_PUBLIC_ENGINE_API_URL || "http://localhost:8000/api",
   timeout: 10000,
 };
 
