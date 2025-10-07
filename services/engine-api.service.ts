@@ -547,8 +547,7 @@ class TradingEngineApiService {
 
 // Create singleton instance
 const engineConfig: EngineConfig = {
-  baseUrl:
-    process.env.NEXT_PUBLIC_ENGINE_API_URL || "http://localhost:8000/api",
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
   timeout: 10000,
 };
 

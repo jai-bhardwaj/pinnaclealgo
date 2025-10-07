@@ -40,24 +40,24 @@ export interface DetailedHealthResponse extends HealthResponse {
   };
 }
 
-// Strategy Management
+// Strategy Management - matching pinnacle-backend models
 export interface ApiStrategy {
-  id: string;
+  id: number;
   name: string;
-  class_name: string;
-  enabled: boolean;
+  strategy_type: string;
   symbols: string[];
   parameters: Record<string, any>;
+  enabled: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateStrategyRequest {
   name: string;
-  class_name: string;
-  enabled: boolean;
+  strategy_type: string;
   symbols: string[];
   parameters: Record<string, any>;
+  enabled: boolean;
 }
 
 export interface UpdateStrategyRequest extends Partial<CreateStrategyRequest> {}
@@ -110,23 +110,31 @@ export interface CreateUserConfigRequest {
 export interface UpdateUserConfigRequest
   extends Partial<CreateUserConfigRequest> {}
 
-// Order Management
-export interface ApiOrder {
+// User Management - matching pinnacle-backend models
+export interface ApiUser {
   id: string;
+  name: string;
+  email: string;
+  paper_trading: boolean;
+  created_at: string;
+}
+
+// Order Management - matching pinnacle-backend models
+export interface ApiOrder {
+  id: number;
   user_id: string;
-  strategy_id?: string;
   symbol: string;
-  signal_type: "BUY" | "SELL";
+  side: string;
+  order_type: string;
   quantity: number;
   price: number;
-  order_type: "MARKET" | "LIMIT";
-  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  status: string;
+  strategy_id: number;
   broker_order_id?: string;
-  filled_quantity?: number;
+  filled_quantity: number;
   filled_price?: number;
-  timestamp: string;
-  filled_at?: string;
-  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreateOrderRequest {

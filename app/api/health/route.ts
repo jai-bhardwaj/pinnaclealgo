@@ -2,32 +2,45 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // Basic health check
-    const health = {
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV,
-      version: process.env.npm_package_version || "1.0.0",
-      services: {
-        database: "connected", // This would check actual DB in production
-        api: "running",
+    // Check if pinnacle-backend is running
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${backendUrl}/health`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-    };
+    });
 
-    return NextResponse.json(health, { status: 200 });
+    if (!response.ok) {
+      throw new Error(`Backend health check failed: ${response.status}`);
+    }
+
+    const backendHealth = await response.json();
+
+    return NextResponse.json({
+      status: "healthy",
+      frontend: {
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+      },
+      backend: backendHealth,
+    });
   } catch (error) {
+    console.error("Health check failed:", error);
     return NextResponse.json(
       {
         status: "unhealthy",
-        timestamp: new Date().toISOString(),
-        error: "Health check failed",
+        frontend: {
+          status: "healthy",
+          timestamp: new Date().toISOString(),
+        },
+        backend: {
+          status: "unhealthy",
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
-}
-
-export async function HEAD() {
-  return new Response(null, { status: 200 });
 }

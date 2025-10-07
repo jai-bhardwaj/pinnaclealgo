@@ -61,46 +61,58 @@ function transformStrategy(strategy: any): Strategy {
   };
 }
 
-// Backend API client with mock implementations
+// Backend API client - now using real pinnacle-backend API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.detail || `HTTP ${response.status}: ${response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
 export const backendApi = {
   strategies: {
-    // Get all strategies for the current user
+    // Get all strategies from pinnacle-backend
     async getAll(): Promise<Strategy[]> {
       try {
-        // Mock implementation
-        const mockStrategies = [
-          {
-            id: "1",
-            name: "RSI DMI Strategy",
-            status: "active",
-            userId: "demo-user",
-            description: "RSI and DMI based trading strategy",
-            strategyType: "RSI_DMI",
-            assetClass: "EQUITY",
-            symbols: ["AAPL", "MSFT", "GOOGL"],
-            timeframe: "1H",
-            capitalAllocated: 50000,
-            totalPnl: 2500,
-            totalTrades: 150,
-            winRate: 65.5,
-          },
-          {
-            id: "2",
-            name: "Swing Momentum",
-            status: "inactive",
-            userId: "demo-user",
-            description: "Swing trading with momentum indicators",
-            strategyType: "SWING",
-            assetClass: "EQUITY",
-            symbols: ["TSLA", "NVDA"],
-            timeframe: "4H",
-            capitalAllocated: 30000,
-            totalPnl: -500,
-            totalTrades: 75,
-            winRate: 45.2,
-          },
-        ];
-        return mockStrategies.map(transformStrategy);
+        const strategies = await apiRequest<any[]>("/strategies");
+        return strategies.map((strategy) => ({
+          id: strategy.id.toString(),
+          name: strategy.name,
+          status: strategy.enabled ? "active" : "inactive",
+          lastUpdated: formatDate(strategy.updated_at),
+          user_id: "demo-user", // Default user for now
+          description: `${strategy.strategy_type} strategy`,
+          strategyType: strategy.strategy_type,
+          assetClass: "EQUITY",
+          symbols: strategy.symbols || [],
+          timeframe: "1D",
+          parameters: strategy.parameters || {},
+          riskParameters: {},
+          maxPositions: 5,
+          capitalAllocated: 50000,
+          totalPnl: 0,
+          totalTrades: 0,
+          winRate: 0,
+        }));
       } catch (error) {
         console.error("Error fetching strategies:", error);
         throw new Error(
@@ -112,42 +124,91 @@ export const backendApi = {
     // Update a strategy
     async update(id: string, data: StrategyUpdateRequest): Promise<Strategy> {
       try {
-        // Mock implementation
-        const mockStrategy = {
-          id,
-          name: data.name || "Updated Strategy",
-          status: data.status || "active",
-          userId: "demo-user",
-          description: data.description || "Updated description",
-          strategyType: "RSI",
+        const updateData: any = {};
+        if (data.name) updateData.name = data.name;
+        if (data.description) updateData.description = data.description;
+        if (data.status !== undefined)
+          updateData.enabled = data.status === "active";
+
+        const strategy = await apiRequest<any>(`/strategies/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(updateData),
+        });
+
+        return {
+          id: strategy.id.toString(),
+          name: strategy.name,
+          status: strategy.enabled ? "active" : "inactive",
+          lastUpdated: formatDate(strategy.updated_at),
+          user_id: "demo-user",
+          description: `${strategy.strategy_type} strategy`,
+          strategyType: strategy.strategy_type,
+          assetClass: "EQUITY",
+          symbols: strategy.symbols || [],
+          timeframe: "1D",
+          parameters: strategy.parameters || {},
+          riskParameters: {},
+          maxPositions: 5,
           capitalAllocated: 50000,
-          updatedAt: new Date(),
+          totalPnl: 0,
+          totalTrades: 0,
+          winRate: 0,
         };
-        return transformStrategy(mockStrategy);
       } catch (error) {
         console.error("Error updating strategy:", error);
         throw new Error("Failed to update strategy. Please try again.");
       }
     },
 
-    // Square off a specific strategy
-    async squareOff(strategyId: string): Promise<SquareOffResponse> {
+    // Enable a strategy
+    async enable(strategyId: string): Promise<SquareOffResponse> {
       try {
-        // Mock implementation
+        await apiRequest(`/strategies/${strategyId}/enable`, {
+          method: "PUT",
+        });
         return {
-          message: `Strategy ${strategyId} squared off successfully`,
+          message: `Strategy ${strategyId} enabled successfully`,
           success: true,
         };
       } catch (error) {
-        console.error("Error squaring off strategy:", error);
-        throw new Error("Failed to square off strategy. Please try again.");
+        console.error("Error enabling strategy:", error);
+        throw new Error("Failed to enable strategy. Please try again.");
       }
+    },
+
+    // Disable a strategy
+    async disable(strategyId: string): Promise<SquareOffResponse> {
+      try {
+        await apiRequest(`/strategies/${strategyId}/disable`, {
+          method: "PUT",
+        });
+        return {
+          message: `Strategy ${strategyId} disabled successfully`,
+          success: true,
+        };
+      } catch (error) {
+        console.error("Error disabling strategy:", error);
+        throw new Error("Failed to disable strategy. Please try again.");
+      }
+    },
+
+    // Square off a specific strategy (alias for disable)
+    async squareOff(strategyId: string): Promise<SquareOffResponse> {
+      return this.disable(strategyId);
     },
 
     // Square off all strategies
     async squareOffAll(): Promise<SquareOffResponse> {
       try {
-        // Mock implementation
+        const strategies = await this.getAll();
+        const activeStrategies = strategies.filter(
+          (s) => s.status === "active"
+        );
+
+        for (const strategy of activeStrategies) {
+          await this.disable(strategy.id);
+        }
+
         return {
           message: "All strategies squared off successfully",
           success: true,
@@ -163,7 +224,6 @@ export const backendApi = {
     // Initialize default strategies
     async initialize(): Promise<Strategy[]> {
       try {
-        // Mock implementation - return default strategies
         return await this.getAll();
       } catch (error) {
         console.error("Error initializing strategies:", error);
@@ -186,18 +246,39 @@ export const backendApi = {
       capitalAllocated: number;
     }): Promise<Strategy> {
       try {
-        // Mock implementation
-        const mockStrategy = {
-          id: Math.random().toString(),
-          ...strategyData,
-          userId: "demo-user",
-          status: strategyData.status || "inactive",
+        const createData = {
+          name: strategyData.name,
+          strategy_type: strategyData.strategyType,
+          symbols: strategyData.symbols || [],
+          parameters: strategyData.parameters || {},
+          enabled: strategyData.status === "active",
+        };
+
+        const strategy = await apiRequest<any>("/strategies", {
+          method: "POST",
+          body: JSON.stringify(createData),
+        });
+
+        return {
+          id: strategy.id.toString(),
+          name: strategy.name,
+          status: strategy.enabled ? "active" : "inactive",
+          lastUpdated: formatDate(strategy.updated_at),
+          user_id: "demo-user",
+          description:
+            strategyData.description || `${strategy.strategy_type} strategy`,
+          strategyType: strategy.strategy_type,
+          assetClass: strategyData.assetClass || "EQUITY",
+          symbols: strategy.symbols || [],
+          timeframe: strategyData.timeframe || "1D",
+          parameters: strategy.parameters || {},
+          riskParameters: strategyData.riskParameters || {},
+          maxPositions: strategyData.maxPositions || 5,
+          capitalAllocated: strategyData.capitalAllocated,
           totalPnl: 0,
           totalTrades: 0,
           winRate: 0,
-          createdAt: new Date(),
         };
-        return transformStrategy(mockStrategy);
       } catch (error) {
         console.error("Error creating strategy:", error);
         throw new Error("Failed to create strategy. Please try again.");
@@ -207,7 +288,9 @@ export const backendApi = {
     // Delete a strategy
     async delete(strategyId: string): Promise<{ success: boolean }> {
       try {
-        // Mock implementation
+        await apiRequest(`/strategies/${strategyId}`, {
+          method: "DELETE",
+        });
         return { success: true };
       } catch (error) {
         console.error("Error deleting strategy:", error);
@@ -218,57 +301,48 @@ export const backendApi = {
     // Get strategy by ID
     async getById(strategyId: string): Promise<Strategy> {
       try {
-        // Mock implementation
-        const mockStrategy = {
-          id: strategyId,
-          name: "Demo Strategy",
-          status: "active",
-          userId: "demo-user",
-          description: "Demo strategy for testing",
-          strategyType: "RSI",
+        const strategy = await apiRequest<any>(`/strategies/${strategyId}`);
+        return {
+          id: strategy.id.toString(),
+          name: strategy.name,
+          status: strategy.enabled ? "active" : "inactive",
+          lastUpdated: formatDate(strategy.updated_at),
+          user_id: "demo-user",
+          description: `${strategy.strategy_type} strategy`,
+          strategyType: strategy.strategy_type,
+          assetClass: "EQUITY",
+          symbols: strategy.symbols || [],
+          timeframe: "1D",
+          parameters: strategy.parameters || {},
+          riskParameters: {},
+          maxPositions: 5,
           capitalAllocated: 50000,
-          totalPnl: 2500,
-          totalTrades: 150,
-          winRate: 65.5,
+          totalPnl: 0,
+          totalTrades: 0,
+          winRate: 0,
         };
-        return transformStrategy(mockStrategy);
       } catch (error) {
         console.error("Error fetching strategy:", error);
         throw new Error("Failed to load strategy. Please try again.");
       }
     },
 
-    // Start a strategy
+    // Start a strategy (alias for enable)
     async start(strategyId: string): Promise<Strategy> {
-      try {
-        const strategy = await this.getById(strategyId);
-        return { ...strategy, status: "active" };
-      } catch (error) {
-        console.error("Error starting strategy:", error);
-        throw new Error("Failed to start strategy. Please try again.");
-      }
+      await this.enable(strategyId);
+      return this.getById(strategyId);
     },
 
-    // Stop a strategy
+    // Stop a strategy (alias for disable)
     async stop(strategyId: string): Promise<Strategy> {
-      try {
-        const strategy = await this.getById(strategyId);
-        return { ...strategy, status: "inactive" };
-      } catch (error) {
-        console.error("Error stopping strategy:", error);
-        throw new Error("Failed to stop strategy. Please try again.");
-      }
+      await this.disable(strategyId);
+      return this.getById(strategyId);
     },
 
-    // Pause a strategy
+    // Pause a strategy (alias for disable)
     async pause(strategyId: string): Promise<Strategy> {
-      try {
-        const strategy = await this.getById(strategyId);
-        return { ...strategy, status: "inactive" };
-      } catch (error) {
-        console.error("Error pausing strategy:", error);
-        throw new Error("Failed to pause strategy. Please try again.");
-      }
+      await this.disable(strategyId);
+      return this.getById(strategyId);
     },
   },
 };
