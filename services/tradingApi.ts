@@ -158,8 +158,8 @@ class TradingApiService {
 
   // === USER DASHBOARD ===
 
-  async getDashboard(): Promise<DashboardData> {
-    return this.request<DashboardData>("/api/user/dashboard");
+  async getDashboard(userId: string): Promise<DashboardData> {
+    return this.request<DashboardData>(`/users/${userId}/dashboard`);
   }
 
   async activateStrategy(

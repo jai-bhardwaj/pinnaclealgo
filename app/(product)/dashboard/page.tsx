@@ -23,7 +23,7 @@ import {
 
 function DashboardPage() {
   const { user } = useUser();
-  const { data: dashboardData, isLoading, error, refetch } = useDashboard();
+  const { data: dashboardData, isLoading, error, refetch } = useDashboard(user?.id || "");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
