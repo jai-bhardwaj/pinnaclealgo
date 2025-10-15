@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { observer } from "mobx-react-lite";
+import { useState } from "react";
 import { useUser } from "@/contexts/user-context";
-import { useStores } from "@/stores";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,58 +27,41 @@ import {
   Activity,
   Calendar,
 } from "lucide-react";
+import { usePositions } from "@/hooks/useTradingApi";
 
-const PortfolioPage = observer(() => {
+function PortfolioPage() {
   const { user } = useUser();
-  const { portfolioStore } = useStores();
+  const {
+    data: positions,
+    isLoading,
+    error,
+    refetch,
+  } = usePositions(user?.id || "");
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Load live portfolio data from FastAPI backend
-  useEffect(() => {
-    if (user?.id) {
-      // Fetch live positions and portfolio data
-      // This will call your FastAPI backend endpoints
-      console.log("Loading live portfolio data for user:", user.id);
-      // portfolioStore.fetchPositions(user.id);
-      // portfolioStore.fetchPortfolioSummary(user.id);
-    }
-  }, [user?.id]);
-
-  // Use live data from portfolio store (will be populated from backend)
-  const positions = portfolioStore.positions || [];
-  const isLoading = portfolioStore.isLoading || false;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      if (user?.id) {
-        // Refresh live data from FastAPI backend
-        console.log("Refreshing live portfolio data for user:", user.id);
-        // await portfolioStore.fetchPositions(user.id);
-        // await portfolioStore.fetchPortfolioSummary(user.id);
-      }
+      await refetch();
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  // Live portfolio metrics from store data
-  const totalPositions = positions.length;
-  const totalValue = 0; // Will be populated from portfolioStore when backend is connected
-  const totalPnL = 0; // Will be populated from portfolioStore when backend is connected
-  const totalInvested = 0; // Will be populated from portfolioStore when backend is connected
-  const availableBalance = 0; // Will be populated from portfolioStore when backend is connected
-  const totalBalance = 0; // Will be populated from portfolioStore when backend is connected
-  const pnlPercentage = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
-
-  // Live portfolio performance from store
-  const portfolioPerformance = {
-    winningDays: 0,
-    losingDays: 0,
-    trades: 0,
-    totalPnl: 0,
-    dailyPnL: {} as Record<string, number>
-  };
+  // Calculate portfolio metrics
+  const totalPositions = positions?.length || 0;
+  const totalValue =
+    positions?.reduce((sum, pos) => sum + pos.market_value, 0) || 0;
+  const totalPnL = positions?.reduce((sum, pos) => sum + pos.pnl, 0) || 0;
+  const totalInvested =
+    positions?.reduce(
+      (sum, pos) => sum + pos.quantity * pos.average_price,
+      0
+    ) || 0;
+  const availableBalance = 0; // Will be available from dashboard data
+  const totalBalance = totalValue + availableBalance;
+  const pnlPercentage =
+    totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
 
   if (!user) {
     return (
@@ -94,6 +75,30 @@ const PortfolioPage = observer(() => {
             <p className="text-gray-600">
               Please log in to view your portfolio.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <div className="text-red-500 mb-4">
+              <Activity className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">
+              Error Loading Portfolio
+            </h2>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <Button onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -246,117 +251,6 @@ const PortfolioPage = observer(() => {
           </Card>
         </div>
 
-        {/* Performance Metrics */}
-        {false && ( // Disabled until portfolio performance is implemented
-          <Card className="bg-white border border-gray-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-medium text-gray-900 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 bg-gray-900 rounded-sm flex items-center justify-center">
-                    <Target className="h-3 w-3 text-white" />
-                  </div>
-                  <span>Portfolio Performance</span>
-                </div>
-                <Badge
-                  variant="secondary"
-                  className="bg-gray-100 text-gray-700 border-gray-200"
-                >
-                  Last 30 Days
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-light text-gray-900">
-                    {portfolioPerformance
-                      ? Math.round(
-                          (portfolioPerformance.winningDays /
-                            (portfolioPerformance.winningDays +
-                              portfolioPerformance.losingDays)) *
-                            100
-                        )
-                      : 85}
-                    %
-                  </div>
-                  <div className="text-sm text-gray-500">Win Rate</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {portfolioPerformance.winningDays} winning days
-                  </div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-light text-gray-900">
-                    {portfolioPerformance.trades || 0}
-                  </div>
-                  <div className="text-sm text-gray-500">Total Trades</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    Real executed trades
-                  </div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-light text-gray-900">
-                    ₹{portfolioPerformance.totalPnl?.toLocaleString() || "0"}
-                  </div>
-                  <div className="text-sm text-gray-500">Period P&L</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    30-day performance
-                  </div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-light text-gray-900">
-                    {portfolioPerformance.losingDays || 0}
-                  </div>
-                  <div className="text-sm text-gray-500">Losing Days</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    Days with losses
-                  </div>
-                </div>
-              </div>
-
-              {/* Daily P&L Summary if available */}
-              {portfolioPerformance.dailyPnL &&
-                Object.keys(portfolioPerformance.dailyPnL).length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">
-                      Recent Daily Performance
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Calendar className="h-5 w-5 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-700">
-                            Best Day
-                          </span>
-                        </div>
-                        <span className="font-medium text-green-600">
-                          ₹
-                          {Math.max(
-                            ...Object.values(portfolioPerformance.dailyPnL)
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Calendar className="h-5 w-5 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-700">
-                            Worst Day
-                          </span>
-                        </div>
-                        <span className="font-medium text-red-600">
-                          ₹
-                          {Math.min(
-                            ...Object.values(portfolioPerformance.dailyPnL)
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Positions Table */}
         <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
@@ -374,7 +268,7 @@ const PortfolioPage = observer(() => {
                 <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">Loading positions...</p>
               </div>
-            ) : positions.length === 0 ? (
+            ) : (positions?.length || 0) === 0 ? (
               <div className="text-center py-12">
                 <PieChart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 text-lg">No positions found</p>
@@ -397,9 +291,6 @@ const PortfolioPage = observer(() => {
                         Avg Price
                       </TableHead>
                       <TableHead className="font-medium text-gray-700">
-                        Current Price
-                      </TableHead>
-                      <TableHead className="font-medium text-gray-700">
                         Market Value
                       </TableHead>
                       <TableHead className="font-medium text-gray-700">
@@ -414,20 +305,11 @@ const PortfolioPage = observer(() => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {positions.map((position) => {
-                      const marketValue =
-                        position.quantity * position.lastTradedPrice;
-                      const investedValue =
-                        position.quantity * position.averagePrice;
-                      const pnl = marketValue - investedValue;
+                    {(positions || []).map((position) => {
                       const pnlPercent =
-                        investedValue > 0 ? (pnl / investedValue) * 100 : 0;
-                      // Calculate day change as percentage of current price vs average price as a simple approximation
-                      const dayChange =
-                        position.lastTradedPrice > 0
-                          ? ((position.lastTradedPrice -
-                              position.averagePrice) /
-                              position.averagePrice) *
+                        position.average_price > 0
+                          ? (position.pnl /
+                              (position.quantity * position.average_price)) *
                             100
                           : 0;
 
@@ -450,20 +332,20 @@ const PortfolioPage = observer(() => {
                             {position.quantity}
                           </TableCell>
                           <TableCell className="text-gray-700">
-                            ₹{position.averagePrice.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-gray-700">
-                            ₹{position.lastTradedPrice.toLocaleString()}
+                            ₹{position.average_price.toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium text-gray-900">
-                            ₹{marketValue.toLocaleString()}
+                            ₹{position.market_value.toLocaleString()}
                           </TableCell>
                           <TableCell
                             className={`font-medium ${
-                              pnl >= 0 ? "text-green-600" : "text-red-600"
+                              position.pnl >= 0
+                                ? "text-green-600"
+                                : "text-red-600"
                             }`}
                           >
-                            {pnl >= 0 ? "+" : ""}₹{pnl.toLocaleString()}
+                            {position.pnl >= 0 ? "+" : ""}₹
+                            {position.pnl.toLocaleString()}
                           </TableCell>
                           <TableCell
                             className={`font-medium ${
@@ -477,17 +359,19 @@ const PortfolioPage = observer(() => {
                           </TableCell>
                           <TableCell
                             className={`${
-                              dayChange >= 0 ? "text-green-600" : "text-red-600"
+                              position.day_change >= 0
+                                ? "text-green-600"
+                                : "text-red-600"
                             }`}
                           >
                             <div className="flex items-center">
-                              {dayChange >= 0 ? (
+                              {position.day_change >= 0 ? (
                                 <ArrowUpRight className="h-3 w-3 mr-1" />
                               ) : (
                                 <ArrowDownRight className="h-3 w-3 mr-1" />
                               )}
-                              {dayChange >= 0 ? "+" : ""}
-                              {dayChange.toFixed(2)}%
+                              {position.day_change >= 0 ? "+" : ""}
+                              {position.day_change.toFixed(2)}%
                             </div>
                           </TableCell>
                         </TableRow>
@@ -502,6 +386,6 @@ const PortfolioPage = observer(() => {
       </div>
     </div>
   );
-});
+}
 
 export default PortfolioPage;

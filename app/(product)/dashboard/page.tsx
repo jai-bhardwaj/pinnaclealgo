@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { observer } from "mobx-react-lite";
-import { useStores } from "@/stores";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/contexts/user-context";
-import type { DashboardStats } from "@/types";
+import { useDashboard } from "@/hooks/useTradingApi";
 import {
   TrendingUp,
   TrendingDown,
@@ -23,15 +21,9 @@ import {
   PieChart,
 } from "lucide-react";
 
-const DashboardPage = observer(() => {
-  const { portfolioStore, strategyStore, orderStore } = useStores();
+function DashboardPage() {
   const { user } = useUser();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalBalance: 0,
-    totalPnL: 0,
-    activeStrategies: 0,
-    openOrders: 0,
-  });
+  const { data: dashboardData, isLoading, error, refetch } = useDashboard();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
@@ -47,72 +39,58 @@ const DashboardPage = observer(() => {
     return () => clearInterval(interval);
   }, []);
 
-  // Load live data using MobX stores
-  useEffect(() => {
-    if (user?.id) {
-      // Fetch live dashboard data from FastAPI backend
-      strategyStore.fetchStrategies(user.id);
-      orderStore.fetchOrders(user.id);
-      
-      // Fetch portfolio data - will be implemented when portfolio store methods are added
-      // portfolioStore.fetchPortfolio(user.id);
-    }
-  }, [user?.id, strategyStore, orderStore, portfolioStore]);
-
-  // Calculate stats from live store data
-  useEffect(() => {
-    const activeStrategies = strategyStore.strategies.filter(s => s.status === 'ACTIVE').length;
-    const openOrders = orderStore.orders.filter(o => o.status === 'OPEN' || o.status === 'PENDING').length;
-    
-    // Use real data from stores (this will be populated when backend calls are successful)
-    const totalBalance = portfolioStore.totalBalance || 0;
-    const totalPnL = portfolioStore.totalPnL || 0;
-
-    setStats({
-      totalBalance,
-      totalPnL,
-      activeStrategies,
-      openOrders,
-    });
-  }, [strategyStore.strategies, orderStore.orders, portfolioStore.totalBalance, portfolioStore.totalPnL]);
-
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      if (user?.id) {
-        await Promise.all([
-          strategyStore.fetchStrategies(user.id),
-          orderStore.fetchOrders(user.id),
-        ]);
-      }
+      await refetch();
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  const isLoading = strategyStore.isLoading || orderStore.isLoading;
+  // Calculate stats from dashboard data
+  const stats = dashboardData
+    ? {
+        totalBalance: dashboardData.portfolio_summary.total_value,
+        totalPnL: dashboardData.portfolio_summary.total_pnl,
+        activeStrategies: dashboardData.active_strategies.length,
+        openOrders: dashboardData.recent_orders.filter(
+          (o) => o.status === "OPEN" || o.status === "PENDING"
+        ).length,
+      }
+    : {
+        totalBalance: 0,
+        totalPnL: 0,
+        activeStrategies: 0,
+        openOrders: 0,
+      };
+
   const totalPnLPercentage =
     stats.totalBalance > 0 ? (stats.totalPnL / stats.totalBalance) * 100 : 0;
   const isProfitable = stats.totalPnL >= 0;
 
-  // Calculate additional metrics from store data
-  const strategies = strategyStore.strategies || [];
-  const orders = orderStore.orders || [];
-  const positions: any[] = []; // Portfolio positions will be added when portfolio store is implemented
+  // Calculate additional metrics from dashboard data
+  const strategies = dashboardData?.active_strategies || [];
+  const orders = dashboardData?.recent_orders || [];
+  const positions: any[] = []; // Will be populated when positions endpoint is available
 
   const totalTrades = strategies.reduce(
-    (sum: number, strategy: any) => sum + (strategy.totalTrades || 0),
+    (sum: number, strategy: any) => sum + (strategy.total_orders || 0),
     0
   );
   const avgWinRate =
     strategies.length > 0
-      ? strategies.reduce((sum: number, strategy: any) => sum + (strategy.winRate || 0), 0) /
-        strategies.length
+      ? strategies.reduce((sum: number, strategy: any) => {
+          const winRate =
+            strategy.total_orders > 0
+              ? (strategy.successful_orders / strategy.total_orders) * 100
+              : 0;
+          return sum + winRate;
+        }, 0) / strategies.length
       : 0;
-  
-  // Mock portfolio data - will be replaced with real portfolio store data
+
   const portfolioValue = stats.totalBalance;
-  const availableCash = stats.totalBalance * 0.3; // Mock: 30% available cash
+  const availableCash = dashboardData?.portfolio_summary.available_balance || 0;
 
   if (!user) {
     return (
@@ -126,6 +104,30 @@ const DashboardPage = observer(() => {
             <p className="text-gray-600">
               Please log in to view your trading dashboard.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <div className="text-red-500 mb-4">
+              <Activity className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">
+              Error Loading Dashboard
+            </h2>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <Button onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -443,6 +445,6 @@ const DashboardPage = observer(() => {
       </div>
     </div>
   );
-});
+}
 
 export default DashboardPage;

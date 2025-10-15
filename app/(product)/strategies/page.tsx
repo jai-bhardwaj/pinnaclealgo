@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { observer } from "mobx-react-lite";
+import { useState } from "react";
 import { useUser } from "@/contexts/user-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { StrategyTable } from "./components/strategy-table";
 import {
   BarChart3,
@@ -16,20 +14,45 @@ import {
   IndianRupee,
   Plus,
   RefreshCw,
-  TrendingUp,
-  Target,
-  Zap,
 } from "lucide-react";
-import { strategyPageModel } from "./models/StrategyPageModel";
+import {
+  useStrategies,
+  useActivateStrategy,
+  useDeactivateStrategy,
+  usePauseStrategy,
+} from "@/hooks/useTradingApi";
 
-const StrategiesPage = observer(() => {
+function StrategiesPage() {
   const { user } = useUser();
+  const { data: strategies, isLoading, error, refetch } = useStrategies();
+  const activateStrategy = useActivateStrategy();
+  const deactivateStrategy = useDeactivateStrategy();
+  const pauseStrategy = usePauseStrategy();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user?.id) {
-      strategyPageModel.initialize(user.id);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
     }
-  }, [user?.id]);
+  };
+
+  // Calculate summary stats
+  const summaryStats = strategies
+    ? {
+        total_strategies: strategies.length,
+        active_strategies: strategies.filter((s) => s.enabled).length,
+        paused_strategies: strategies.filter((s) => !s.enabled).length,
+        total_pnl: 0, // Will be calculated from positions/trades when available
+      }
+    : {
+        total_strategies: 0,
+        active_strategies: 0,
+        paused_strategies: 0,
+        total_pnl: 0,
+      };
 
   if (!user) {
     return (
@@ -43,6 +66,30 @@ const StrategiesPage = observer(() => {
             <p className="text-gray-600">
               Please log in to view your trading strategies.
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <div className="text-red-500 mb-4">
+              <Activity className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">
+              Error Loading Strategies
+            </h2>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <Button onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -70,15 +117,13 @@ const StrategiesPage = observer(() => {
 
           <div className="flex items-center space-x-3">
             <Button
-              onClick={() => strategyPageModel.refresh()}
-              disabled={strategyPageModel.isRefreshing}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               <RefreshCw
-                className={`h-4 w-4 mr-2 ${
-                  strategyPageModel.isRefreshing ? "animate-spin" : ""
-                }`}
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
               />
               <span>Refresh</span>
             </Button>
@@ -101,7 +146,7 @@ const StrategiesPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-gray-900">
-                {strategyPageModel.summaryStats.total_strategies}
+                {summaryStats.total_strategies}
               </div>
               <p className="text-xs text-gray-500">All strategies</p>
             </CardContent>
@@ -116,7 +161,7 @@ const StrategiesPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-green-600">
-                {strategyPageModel.summaryStats.active_strategies}
+                {summaryStats.active_strategies}
               </div>
               <p className="text-xs text-gray-500">Currently running</p>
             </CardContent>
@@ -131,7 +176,7 @@ const StrategiesPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-orange-600">
-                {strategyPageModel.summaryStats.paused_strategies}
+                {summaryStats.paused_strategies}
               </div>
               <p className="text-xs text-gray-500">Temporarily stopped</p>
             </CardContent>
@@ -147,14 +192,12 @@ const StrategiesPage = observer(() => {
             <CardContent>
               <div
                 className={`text-2xl font-light ${
-                  strategyPageModel.summaryStats.total_pnl >= 0
+                  summaryStats.total_pnl >= 0
                     ? "text-green-600"
                     : "text-red-600"
                 }`}
               >
-                ₹
-                {strategyPageModel.summaryStats.total_pnl?.toLocaleString() ||
-                  "0"}
+                ₹{summaryStats.total_pnl?.toLocaleString() || "0"}
               </div>
               <p className="text-xs text-gray-500">All strategies</p>
             </CardContent>
@@ -165,84 +208,37 @@ const StrategiesPage = observer(() => {
         <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="p-6">
             <StrategyTable
-              strategies={strategyPageModel.filteredStrategies}
-              isLoading={
-                strategyPageModel.isLoadingStrategies &&
-                (!strategyPageModel.isRefreshing ||
-                  strategyPageModel.isManualRefresh)
-              }
-              error={strategyPageModel.strategiesError}
-              // Pagination
-              currentPage={strategyPageModel.pagination.currentPage}
-              totalPages={strategyPageModel.pagination.totalPages}
-              totalItems={strategyPageModel.pagination.totalItems}
-              pageSize={strategyPageModel.pagination.pageSize}
-              onPageChange={(page) => strategyPageModel.setCurrentPage(page)}
-              onPageSizeChange={(pageSize) =>
-                strategyPageModel.setPageSize(pageSize)
-              }
-              // Search and filters
-              searchQuery={strategyPageModel.filters.searchQuery}
-              onSearchChange={(query) =>
-                strategyPageModel.setSearchQuery(query)
-              }
-              statusFilter={strategyPageModel.filters.statusFilter}
-              onStatusFilterChange={(status) =>
-                strategyPageModel.setStatusFilter(status)
-              }
-              assetClassFilter={strategyPageModel.filters.assetClassFilter}
-              onAssetClassFilterChange={(assetClass) =>
-                strategyPageModel.setAssetClassFilter(assetClass)
-              }
-              strategyTypeFilter={strategyPageModel.filters.strategyTypeFilter}
-              onStrategyTypeFilterChange={(strategyType) =>
-                strategyPageModel.setStrategyTypeFilter(strategyType)
-              }
-              // Actions
-              onRefresh={() => strategyPageModel.refresh()}
-              onExport={() => console.log("Export strategies")}
+              strategies={strategies || []}
+              isLoading={isLoading}
+              error={error ? String(error) : null}
+              onRefresh={handleRefresh}
               onStartStrategy={async (strategyId) => {
                 try {
-                  await strategyPageModel.startStrategy(strategyId);
+                  await activateStrategy.mutateAsync({ strategyId });
                 } catch (error) {
                   console.error("Failed to start strategy:", error);
                 }
               }}
               onStopStrategy={async (strategyId) => {
                 try {
-                  await strategyPageModel.stopStrategy(strategyId);
+                  await deactivateStrategy.mutateAsync(strategyId);
                 } catch (error) {
                   console.error("Failed to stop strategy:", error);
                 }
               }}
               onPauseStrategy={async (strategyId) => {
                 try {
-                  await strategyPageModel.pauseStrategy(strategyId);
+                  await pauseStrategy.mutateAsync(strategyId);
                 } catch (error) {
                   console.error("Failed to pause strategy:", error);
                 }
               }}
-              onEditStrategy={async (strategy) => {
-                try {
-                  await strategyPageModel.updateStrategy(strategy.id, strategy);
-                } catch (error) {
-                  console.error("Failed to update strategy:", error);
-                }
-              }}
-              onDeleteStrategy={async (strategyId) => {
-                try {
-                  await strategyPageModel.deleteStrategy(strategyId);
-                } catch (error) {
-                  console.error("Failed to delete strategy:", error);
-                }
-              }}
-              highlightNewRows={false}
             />
           </CardContent>
         </Card>
       </div>
     </div>
   );
-});
+}
 
 export default StrategiesPage;

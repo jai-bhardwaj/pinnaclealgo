@@ -1,7 +1,10 @@
 // WebSocket Service for Real-time Trading Updates
 // Handles real-time events from the trading backend
 
-import type { WebSocketEvent } from "@/types";
+interface WebSocketEvent {
+  type: string;
+  data: any;
+}
 
 interface WebSocketConfig {
   url: string;
@@ -20,10 +23,10 @@ class TradingWebSocketService {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private isConnecting = false;
   private shouldReconnect = true;
-  
+
   // Event listeners organized by event type
   private eventHandlers = new Map<string, Set<EventHandler>>();
-  
+
   // Connection state listeners
   private connectionHandlers = {
     onConnect: new Set<EventHandler>(),
@@ -51,10 +54,10 @@ class TradingWebSocketService {
     if (this.isConnecting) {
       return new Promise((resolve) => {
         const onConnect = () => {
-          this.off('connect', onConnect);
+          this.off("connect", onConnect);
           resolve();
         };
-        this.on('connect', onConnect);
+        this.on("connect", onConnect);
       });
     }
 
@@ -66,28 +69,34 @@ class TradingWebSocketService {
         this.socket = new WebSocket(this.config.url);
 
         this.socket.onopen = () => {
-          console.log('🔌 WebSocket connected to trading backend');
+          console.log("🔌 WebSocket connected to trading backend");
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this.startHeartbeat();
-          this.notifyConnectionHandlers('onConnect');
+          this.notifyConnectionHandlers("onConnect");
           resolve();
         };
 
         this.socket.onclose = (event) => {
-          console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+          console.log("🔌 WebSocket disconnected:", event.code, event.reason);
           this.isConnecting = false;
           this.stopHeartbeat();
-          this.notifyConnectionHandlers('onDisconnect', { code: event.code, reason: event.reason });
-          
-          if (this.shouldReconnect && this.reconnectAttempts < this.config.maxReconnectAttempts!) {
+          this.notifyConnectionHandlers("onDisconnect", {
+            code: event.code,
+            reason: event.reason,
+          });
+
+          if (
+            this.shouldReconnect &&
+            this.reconnectAttempts < this.config.maxReconnectAttempts!
+          ) {
             this.scheduleReconnect();
           }
         };
 
         this.socket.onerror = (error) => {
-          console.error('🔌 WebSocket error:', error);
-          this.notifyConnectionHandlers('onError', error);
+          console.error("🔌 WebSocket error:", error);
+          this.notifyConnectionHandlers("onError", error);
           if (this.isConnecting) {
             reject(error);
           }
@@ -96,7 +105,6 @@ class TradingWebSocketService {
         this.socket.onmessage = (event) => {
           this.handleMessage(event.data);
         };
-
       } catch (error) {
         this.isConnecting = false;
         reject(error);
@@ -108,7 +116,7 @@ class TradingWebSocketService {
     this.shouldReconnect = false;
     this.clearReconnectTimer();
     this.stopHeartbeat();
-    
+
     if (this.socket) {
       this.socket.close();
       this.socket = null;
@@ -124,13 +132,18 @@ class TradingWebSocketService {
       30000 // Max 30 seconds
     );
 
-    console.log(`🔄 Reconnecting to WebSocket in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    this.notifyConnectionHandlers('onReconnecting', { attempt: this.reconnectAttempts, delay });
+    console.log(
+      `🔄 Reconnecting to WebSocket in ${delay}ms (attempt ${this.reconnectAttempts})`
+    );
+    this.notifyConnectionHandlers("onReconnecting", {
+      attempt: this.reconnectAttempts,
+      delay,
+    });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect().catch((error) => {
-        console.error('Reconnection failed:', error);
+        console.error("Reconnection failed:", error);
       });
     }, delay);
   }
@@ -147,7 +160,7 @@ class TradingWebSocketService {
 
     this.heartbeatTimer = setInterval(() => {
       if (this.socket?.readyState === WebSocket.OPEN) {
-        this.send({ type: 'ping' });
+        this.send({ type: "ping" });
       }
     }, this.config.heartbeatInterval);
   }
@@ -164,9 +177,9 @@ class TradingWebSocketService {
   private handleMessage(data: string): void {
     try {
       const parsedData = JSON.parse(data);
-      
+
       // Handle pong responses
-      if (parsedData.type === 'pong') {
+      if (parsedData.type === "pong") {
         return;
       }
 
@@ -176,7 +189,7 @@ class TradingWebSocketService {
       // Notify specific event listeners
       const handlers = this.eventHandlers.get(event.type);
       if (handlers) {
-        handlers.forEach(handler => {
+        handlers.forEach((handler) => {
           try {
             handler(event.data);
           } catch (error) {
@@ -186,19 +199,18 @@ class TradingWebSocketService {
       }
 
       // Notify general event listeners
-      const allHandlers = this.eventHandlers.get('*');
+      const allHandlers = this.eventHandlers.get("*");
       if (allHandlers) {
-        allHandlers.forEach(handler => {
+        allHandlers.forEach((handler) => {
           try {
             handler(event);
           } catch (error) {
-            console.error('Error in general event handler:', error);
+            console.error("Error in general event handler:", error);
           }
         });
       }
-
     } catch (error) {
-      console.error('Failed to parse WebSocket message:', error, data);
+      console.error("Failed to parse WebSocket message:", error, data);
     }
   }
 
@@ -249,8 +261,11 @@ class TradingWebSocketService {
     return () => this.connectionHandlers.onReconnecting.delete(handler);
   }
 
-  private notifyConnectionHandlers(type: keyof typeof this.connectionHandlers, data?: any): void {
-    this.connectionHandlers[type].forEach(handler => {
+  private notifyConnectionHandlers(
+    type: keyof typeof this.connectionHandlers,
+    data?: any
+  ): void {
+    this.connectionHandlers[type].forEach((handler) => {
       try {
         handler(data);
       } catch (error) {
@@ -266,37 +281,42 @@ class TradingWebSocketService {
   }
 
   get connectionState(): string {
-    if (!this.socket) return 'CLOSED';
-    
+    if (!this.socket) return "CLOSED";
+
     switch (this.socket.readyState) {
-      case WebSocket.CONNECTING: return 'CONNECTING';
-      case WebSocket.OPEN: return 'OPEN';
-      case WebSocket.CLOSING: return 'CLOSING';
-      case WebSocket.CLOSED: return 'CLOSED';
-      default: return 'UNKNOWN';
+      case WebSocket.CONNECTING:
+        return "CONNECTING";
+      case WebSocket.OPEN:
+        return "OPEN";
+      case WebSocket.CLOSING:
+        return "CLOSING";
+      case WebSocket.CLOSED:
+        return "CLOSED";
+      default:
+        return "UNKNOWN";
     }
   }
 
   // === CONVENIENCE METHODS FOR TRADING EVENTS ===
 
   onOrderUpdate(handler: EventHandler): () => void {
-    this.on('order_update', handler);
-    return () => this.off('order_update', handler);
+    this.on("order_update", handler);
+    return () => this.off("order_update", handler);
   }
 
   onPositionUpdate(handler: EventHandler): () => void {
-    this.on('position_update', handler);
-    return () => this.off('position_update', handler);
+    this.on("position_update", handler);
+    return () => this.off("position_update", handler);
   }
 
   onStrategyUpdate(handler: EventHandler): () => void {
-    this.on('strategy_update', handler);
-    return () => this.off('strategy_update', handler);
+    this.on("strategy_update", handler);
+    return () => this.off("strategy_update", handler);
   }
 
   onTradeUpdate(handler: EventHandler): () => void {
-    this.on('trade_update', handler);
-    return () => this.off('trade_update', handler);
+    this.on("trade_update", handler);
+    return () => this.off("trade_update", handler);
   }
 }
 
@@ -312,4 +332,4 @@ export const tradingWebSocket = new TradingWebSocketService(wsConfig);
 
 // Export types and class
 export type { WebSocketConfig, EventHandler };
-export { TradingWebSocketService }; 
+export { TradingWebSocketService };

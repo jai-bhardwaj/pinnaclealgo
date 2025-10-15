@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/user-context";
-import { trpc } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +34,7 @@ import {
   Download,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useTrades, usePositions, useOrders } from "@/hooks/useTradingApi";
 
 export default function PnLPage() {
   const { user } = useUser();
@@ -47,85 +47,59 @@ export default function PnLPage() {
     setCurrentDate(formatDate(new Date()));
   }, []);
 
-  // Fetch P&L data with real tRPC calls
+  // Fetch data using new hooks
   const {
-    data: portfolioSummary,
-    refetch: refetchSummary,
-    isLoading: summaryLoading,
-  } = trpc.portfolio.getPortfolioSummary.useQuery(
-    { userId: user?.id || "" },
-    { enabled: !!user?.id }
-  );
-
+    data: trades,
+    isLoading: tradesLoading,
+    refetch: refetchTrades,
+  } = useTrades(user?.id || "");
   const {
-    data: portfolioPerformance,
-    refetch: refetchPerformance,
-    isLoading: performanceLoading,
-  } = trpc.portfolio.getPortfolioPerformance.useQuery(
-    {
-      userId: user?.id || "",
-      startDate: new Date(
-        Date.now() - parseInt(dateRange.replace("d", "")) * 24 * 60 * 60 * 1000
-      ),
-      endDate: new Date(),
-    },
-    { enabled: !!user?.id }
-  );
+    data: positions,
+    isLoading: positionsLoading,
+    refetch: refetchPositions,
+  } = usePositions(user?.id || "");
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    refetch: refetchOrders,
+  } = useOrders(user?.id || "", {
+    limit: 100,
+    offset: 0,
+  });
 
-  const { data: ordersData, refetch: refetchOrders } =
-    trpc.order.getByUserId.useQuery(
-      {
-        userId: user?.id || "",
-        pagination: { page: 1, limit: 100 },
-        filters: { status: "COMPLETE" as const },
-      },
-      { enabled: !!user?.id }
-    );
-
-  const { data: strategiesData } = trpc.strategy.getByUserId.useQuery(
-    {
-      userId: user?.id || "",
-      pagination: { page: 1, limit: 100 },
-      filters: {},
-    },
-    { enabled: !!user?.id }
-  );
-
-  const isLoading = summaryLoading || performanceLoading;
+  const isLoading = tradesLoading || positionsLoading || ordersLoading;
   const completedOrders = ordersData?.data || [];
-  const strategies = strategiesData?.data || [];
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchSummary(),
-        refetchPerformance(),
-        refetchOrders(),
-      ]);
+      await Promise.all([refetchTrades(), refetchPositions(), refetchOrders()]);
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  // Calculate P&L metrics
-  const totalPnL = portfolioSummary?.balance?.totalPnl || 0;
-  const realizedPnL = portfolioSummary?.realizedPnl || 0;
-  const unrealizedPnL = portfolioSummary?.unrealizedPnl || 0;
-  const totalInvested = portfolioSummary?.totalInvested || 0;
+  // Calculate P&L metrics from positions and trades
+  const totalPnL = positions?.reduce((sum, pos) => sum + pos.pnl, 0) || 0;
+  const realizedPnL =
+    trades?.reduce((sum, trade) => sum + trade.net_amount, 0) || 0;
+  const unrealizedPnL = totalPnL - realizedPnL;
+  const totalInvested =
+    positions?.reduce(
+      (sum, pos) => sum + pos.quantity * pos.average_price,
+      0
+    ) || 0;
   const pnlPercentage =
     totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
 
   // Calculate strategy performance
-  const profitableStrategies = strategies.filter((s) => s.totalPnl > 0).length;
-  const totalTrades = strategies.reduce((sum, s) => sum + s.totalTrades, 0);
+  const totalTrades = trades?.length || 0;
+  const profitableTrades =
+    trades?.filter((trade) => trade.net_amount > 0).length || 0;
   const avgWinRate =
-    strategies.length > 0
-      ? strategies.reduce((sum, strategy) => sum + strategy.winRate, 0) /
-        strategies.length
-      : 0;
+    totalTrades > 0 ? (profitableTrades / totalTrades) * 100 : 0;
 
-  // Generate daily P&L data from real performance data
+  // Generate daily P&L data from trades
   const generateDailyPnL = () => {
     const days = parseInt(dateRange.replace("d", ""));
     const data: Array<{
@@ -135,23 +109,34 @@ export default function PnLPage() {
       trades: number;
     }> = [];
 
-    // Use real daily P&L data if available from portfolioPerformance
-    if (
-      portfolioPerformance?.dailyPnL &&
-      Object.keys(portfolioPerformance.dailyPnL).length > 0
-    ) {
-      const dailyPnLEntries = Object.entries(portfolioPerformance.dailyPnL)
-        .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-        .slice(-days); // Get the last N days
+    if (trades && trades.length > 0) {
+      // Group trades by date
+      const tradesByDate = trades.reduce((acc, trade) => {
+        const date = new Date(trade.created_at).toISOString().split("T")[0];
+        if (!acc[date]) {
+          acc[date] = [];
+        }
+        acc[date].push(trade);
+        return acc;
+      }, {} as Record<string, typeof trades>);
 
+      // Calculate daily P&L
       let cumulativePnL = 0;
-      dailyPnLEntries.forEach(([date, dailyPnL]) => {
+      const sortedDates = Object.keys(tradesByDate).sort();
+
+      sortedDates.slice(-days).forEach((date) => {
+        const dayTrades = tradesByDate[date];
+        const dailyPnL = dayTrades.reduce(
+          (sum, trade) => sum + trade.net_amount,
+          0
+        );
         cumulativePnL += dailyPnL;
+
         data.push({
           date,
           dailyPnL,
           cumulativePnL,
-          trades: 0, // This should come from actual trade data when available
+          trades: dayTrades.length,
         });
       });
     }
@@ -357,11 +342,9 @@ export default function PnLPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-light text-gray-900">
-                  {profitableStrategies}
+                  {profitableTrades}
                 </div>
-                <div className="text-sm text-gray-500">
-                  Profitable Strategies
-                </div>
+                <div className="text-sm text-gray-500">Profitable Trades</div>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-light text-gray-900">2.4x</div>

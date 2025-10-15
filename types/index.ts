@@ -1,170 +1,122 @@
 // Centralized type definitions for the trading frontend application
 // This file consolidates all types and eliminates duplicates
 
-// Re-export all service types that are the source of truth
-// export * from '@/services/types'; // Commented out as services may not exist
-
-// API Client types - these are the API contract types
-import type { RouterOutputs, RouterInputs } from "@/lib/trpc/client";
-
-// === FASTAPI BACKEND TYPES (matching API documentation exactly) ===
+// === TRADING BACKEND API TYPES (matching plan.md specification exactly) ===
 
 // Health & Status
 export interface HealthResponse {
-  status: "healthy" | "unhealthy";
-  timestamp: string;
-  version: string;
-}
-
-export interface DetailedHealthResponse extends HealthResponse {
-  components: {
-    database: {
-      status: "healthy" | "unhealthy";
-      response_time_ms: number;
-    };
-    trading_engine: {
-      status: "healthy" | "unhealthy";
-      active_strategies: number;
-      orders_today: number;
-      success_rate: number;
-    };
-    market_data: {
-      status: "healthy" | "unhealthy";
-      last_update: string;
-    };
-  };
-  system: {
-    uptime_seconds: number;
-    memory_usage_mb: number;
-    cpu_usage_percent: number;
-  };
-}
-
-// Strategy Management - matching pinnacle-backend models
-export interface ApiStrategy {
-  id: number;
-  name: string;
-  strategy_type: string;
-  symbols: string[];
-  parameters: Record<string, any>;
-  enabled: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateStrategyRequest {
-  name: string;
-  strategy_type: string;
-  symbols: string[];
-  parameters: Record<string, any>;
-  enabled: boolean;
-}
-
-export interface UpdateStrategyRequest extends Partial<CreateStrategyRequest> {}
-
-// Strategy update data interface for frontend
-export interface StrategyUpdateData {
-  name?: string;
-  description?: string;
-  enabled?: boolean;
-  parameters?: Record<string, unknown>;
-  risk_parameters?: Record<string, unknown>;
-  max_drawdown?: number;
-  max_positions?: number;
-}
-
-// User Strategy Configuration
-export interface ApiUserConfig {
-  id: string;
-  user_id: string;
-  strategy_id: string;
-  enabled: boolean;
-  max_order_value: number;
-  max_daily_orders: number;
-  risk_percentage: number;
-  order_preferences: {
-    default_quantity?: number;
-    order_type?: string;
-    stop_loss_percentage?: number;
-    take_profit_percentage?: number;
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateUserConfigRequest {
-  user_id: string;
-  strategy_id: string;
-  enabled: boolean;
-  max_order_value: number;
-  max_daily_orders: number;
-  risk_percentage: number;
-  order_preferences: {
-    default_quantity?: number;
-    order_type?: string;
-    stop_loss_percentage?: number;
-    take_profit_percentage?: number;
-  };
-}
-
-export interface UpdateUserConfigRequest
-  extends Partial<CreateUserConfigRequest> {}
-
-// User Management - matching pinnacle-backend models
-export interface ApiUser {
-  id: string;
-  name: string;
-  email: string;
-  paper_trading: boolean;
-  created_at: string;
-}
-
-// Order Management - matching pinnacle-backend models
-export interface ApiOrder {
-  id: number;
-  user_id: string;
-  symbol: string;
-  side: string;
-  order_type: string;
-  quantity: number;
-  price: number;
   status: string;
-  strategy_id: number;
+  timestamp: string;
+  database_connected: boolean;
+  redis_connected: boolean;
+  trading_system_active: boolean;
+}
+
+// Strategy Management
+export interface Strategy {
+  id: string;
+  name: string;
+  strategy_type: string;
+  symbols: string[];
+  parameters: Record<string, any>;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Marketplace Strategy
+export interface MarketplaceStrategy {
+  strategy_id: string;
+  name: string;
+  description: string;
+  category: string;
+  risk_level: string;
+  min_capital: number;
+  expected_return_annual: number;
+  max_drawdown: number;
+  symbols: string[];
+  parameters: Record<string, any>;
+  is_active: boolean;
+}
+
+// Order Management
+export interface Order {
+  id: string;
+  user_id: string;
+  strategy_id: string;
+  symbol: string;
+  side: "BUY" | "SELL";
+  order_type: "MARKET" | "LIMIT" | "STOP_LOSS";
+  quantity: number;
+  price?: number;
+  status: string;
   broker_order_id?: string;
   filled_quantity: number;
   filled_price?: number;
+  filled_at?: string;
+  timestamp: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface CreateOrderRequest {
+export interface OrderRequest {
   user_id: string;
-  strategy_id?: string;
+  strategy_id: string;
   symbol: string;
-  signal_type: "BUY" | "SELL";
+  side: "BUY" | "SELL";
+  order_type: "MARKET" | "LIMIT" | "STOP_LOSS";
   quantity: number;
   price?: number;
-  order_type: "MARKET" | "LIMIT";
-  metadata?: Record<string, any>;
+  confidence?: number; // 0.0 to 1.0
+}
+
+export interface OrderResponse {
+  order_id: string;
+  status: string;
+  broker_order_id?: string;
+  message: string;
+  error?: string;
+}
+
+export interface OrdersResponse {
+  data: Order[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+  offset: number;
+}
+
+export interface OrdersSummary {
+  total_orders: number;
+  total_value: number;
+  open_orders: number;
+  completed_orders: number;
+  cancelled_orders: number;
+  rejected_orders: number;
+  pending_orders: number;
+  status_breakdown: Record<string, number>;
 }
 
 // Position Management
-export interface ApiPosition {
+export interface Position {
   id: string;
   user_id: string;
   symbol: string;
+  exchange: string;
   quantity: number;
   average_price: number;
-  current_price: number;
   market_value: number;
-  pnl: number;
-  pnl_percentage: number;
+  pnl: number; // Unrealized PnL
+  realized_pnl: number;
+  day_change: number;
+  day_change_pct: number;
   created_at: string;
   updated_at: string;
 }
 
 // Trade Management
-export interface ApiTrade {
+export interface Trade {
   id: string;
   user_id: string;
   order_id: string;
@@ -172,153 +124,72 @@ export interface ApiTrade {
   side: "BUY" | "SELL";
   quantity: number;
   price: number;
-  value: number;
-  commission: number;
-  taxes: number;
-  net_value: number;
-  trade_id?: string;
-  exchange: string;
-  timestamp: string;
+  net_amount: number;
+  trade_timestamp?: string;
+  created_at: string;
 }
 
-// WebSocket Event Types
-export interface OrderUpdateEvent {
-  type: "order_update";
-  data: {
-    id: string;
-    status: ApiOrder["status"];
-    filled_quantity?: number;
-    filled_price?: number;
-    filled_at?: string;
-  };
+// User Strategy Configuration
+export interface UserStrategyConfig {
+  id: string;
+  user_id: string;
+  strategy_id: string;
+  enabled: boolean;
+  risk_limits?: Record<string, any>;
+  order_preferences?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface PositionUpdateEvent {
-  type: "position_update";
-  data: {
-    id: string;
-    symbol: string;
-    quantity: number;
-    current_price: number;
-    pnl: number;
-  };
-}
-
-export interface StrategyUpdateEvent {
-  type: "strategy_update";
-  data: {
-    id: string;
-    name: string;
-    enabled: boolean;
-    updated_at: string;
-  };
-}
-
-export interface TradeUpdateEvent {
-  type: "trade_update";
-  data: {
-    id: string;
-    symbol: string;
-    quantity: number;
-    price: number;
-    timestamp: string;
-  };
-}
-
-export type WebSocketEvent =
-  | OrderUpdateEvent
-  | PositionUpdateEvent
-  | StrategyUpdateEvent
-  | TradeUpdateEvent;
-
-// API Error Response
-export interface ApiErrorResponse {
-  detail: string;
-  error_code?: string;
-  timestamp: string;
-}
-
-// Query Parameters for list endpoints
-export interface StrategyListParams {
+export interface UpdateUserStrategyConfigRequest {
   enabled?: boolean;
-  limit?: number;
-  offset?: number;
+  risk_limits?: {
+    max_position_size?: number;
+    max_daily_loss?: number;
+  };
+  order_preferences?: {
+    default_quantity?: number;
+    slippage_tolerance?: number;
+  };
 }
 
-export interface UserConfigListParams {
-  user_id?: string;
-  strategy_id?: string;
-  enabled?: boolean;
+// Dashboard Data
+export interface DashboardData {
+  user_info: {
+    user_id: string;
+    username: string;
+    email: string;
+    role: string;
+    status: string;
+  };
+  active_strategies: Array<{
+    user_id: string;
+    strategy_id: string;
+    status: string;
+    activated_at: string;
+    allocation_amount: number;
+    custom_parameters: Record<string, any>;
+    total_orders: number;
+    successful_orders: number;
+    total_pnl: number;
+  }>;
+  recent_orders: Order[];
+  portfolio_summary: {
+    total_value: number;
+    day_change: number;
+    day_change_pct: number;
+    total_pnl: number;
+    available_balance: number;
+  };
+  system_status: {
+    engine_running: boolean;
+    total_users: number;
+    active_strategies: number;
+    total_orders: number;
+    memory_usage_mb: number;
+    uptime_seconds: number;
+  };
 }
-
-export interface OrderListParams {
-  user_id?: string;
-  strategy_id?: string;
-  symbol?: string;
-  status?: ApiOrder["status"];
-  signal_type?: "BUY" | "SELL";
-  start_date?: string;
-  end_date?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface PositionListParams {
-  user_id?: string;
-  symbol?: string;
-  active_only?: boolean;
-  limit?: number;
-  offset?: number;
-}
-
-export interface TradeListParams {
-  user_id?: string;
-  symbol?: string;
-  start_date?: string;
-  end_date?: string;
-  limit?: number;
-  offset?: number;
-}
-
-// === CORE ENTITY TYPES (from tRPC, these are the actual API types) ===
-
-// User types
-export type User = RouterOutputs["user"]["getById"];
-export type UserProfile = RouterOutputs["user"]["getProfile"];
-export type UserStats = RouterOutputs["user"]["getStats"];
-export type CreateUserInput = RouterInputs["user"]["create"];
-export type UpdateUserInput = RouterInputs["user"]["update"];
-
-// Strategy types
-export type Strategy = RouterOutputs["strategy"]["getById"];
-export type StrategyWithCounts =
-  RouterOutputs["strategy"]["getByUserId"]["data"][0];
-export type StrategyPerformance = RouterOutputs["strategy"]["getPerformance"];
-export type StrategyStats = RouterOutputs["strategy"]["getStats"];
-export type StrategyListResponse = RouterOutputs["strategy"]["getByUserId"];
-export type CreateStrategyInput = RouterInputs["strategy"]["create"];
-export type UpdateStrategyInput = RouterInputs["strategy"]["update"];
-
-// Order types
-export type Order = RouterOutputs["order"]["getById"];
-export type OrderWithRelations =
-  RouterOutputs["order"]["getByUserId"]["data"][0];
-export type OrderStats = RouterOutputs["order"]["getStats"];
-export type OrderListResponse = RouterOutputs["order"]["getByUserId"];
-export type CreateOrderInput = RouterInputs["order"]["create"];
-export type UpdateOrderInput = RouterInputs["order"]["update"];
-export type CancelOrderInput = RouterInputs["order"]["cancel"];
-
-// Portfolio types
-export type Position = RouterOutputs["portfolio"]["getPositionById"];
-export type PositionWithDetails =
-  RouterOutputs["portfolio"]["getPositionsByUserId"]["data"][0];
-export type Balance = RouterOutputs["portfolio"]["getUserBalance"];
-export type PortfolioSummary =
-  RouterOutputs["portfolio"]["getPortfolioSummary"];
-export type PortfolioPerformance =
-  RouterOutputs["portfolio"]["getPortfolioPerformance"];
-export type PortfolioRisk = RouterOutputs["portfolio"]["getPortfolioRisk"];
 
 // === APPLICATION-SPECIFIC TYPES ===
 
@@ -359,17 +230,6 @@ export interface TableProps<T> {
   error?: string | null;
   onRefresh?: () => void;
 }
-
-// Filter types for API calls
-export type StrategyFilters =
-  RouterInputs["strategy"]["getByUserId"]["filters"];
-export type OrderFilters = RouterInputs["order"]["getByUserId"]["filters"];
-export type PositionFilters =
-  RouterInputs["portfolio"]["getPositionsByUserId"]["filters"];
-
-// Pagination types
-export type PaginationParams =
-  RouterInputs["strategy"]["getByUserId"]["pagination"];
 
 // === FORM TYPES ===
 
@@ -420,11 +280,6 @@ export interface LoadingState {
   error: string | null;
 }
 
-// Store state types
-export interface StoreState extends LoadingState {
-  isSubmitting: boolean;
-}
-
 // === TYPE GUARDS ===
 
 export function isExtendedUser(user: any): user is ExtendedUser {
@@ -442,7 +297,7 @@ export function isStrategy(item: any): item is Strategy {
     item &&
     typeof item.id === "string" &&
     typeof item.name === "string" &&
-    typeof item.userId === "string"
+    typeof item.strategy_type === "string"
   );
 }
 
@@ -451,7 +306,7 @@ export function isOrder(item: any): item is Order {
     item &&
     typeof item.id === "string" &&
     typeof item.symbol === "string" &&
-    typeof item.userId === "string"
+    typeof item.user_id === "string"
   );
 }
 

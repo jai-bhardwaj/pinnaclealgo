@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { observer } from "mobx-react-lite";
+import { useState } from "react";
 import { useUser } from "@/contexts/user-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,18 +14,50 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { Select as ShadSelect, SelectTrigger as ShadSelectTrigger, SelectContent as ShadSelectContent, SelectItem as ShadSelectItem, SelectValue as ShadSelectValue } from "@/components/ui/select";
-import { orderPageModel } from "./models/OrderPageModel";
-import { MODES } from "./models/types";
+import {
+  useOrders,
+  useOrdersSummary,
+  usePlaceOrder,
+} from "@/hooks/useTradingApi";
 
-const OrderPage = observer(() => {
+function OrderPage() {
   const { user } = useUser();
+  const {
+    data: ordersData,
+    isLoading,
+    error,
+    refetch,
+  } = useOrders(user?.id || "", {
+    limit: 50,
+    offset: 0,
+  });
+  const { data: ordersSummary } = useOrdersSummary(user?.id || "");
+  const placeOrder = usePlaceOrder();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user?.id) {
-      orderPageModel.initialize(user.id);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
     }
-  }, [user?.id]);
+  };
+
+  // Calculate summary stats
+  const summaryStats = ordersSummary
+    ? {
+        total_orders: ordersSummary.total_orders,
+        completed_orders: ordersSummary.completed_orders,
+        open_orders: ordersSummary.open_orders,
+        total_value: ordersSummary.total_value,
+      }
+    : {
+        total_orders: 0,
+        completed_orders: 0,
+        open_orders: 0,
+        total_value: 0,
+      };
 
   if (!user) {
     return (
@@ -38,6 +69,28 @@ const OrderPage = observer(() => {
               Authentication Required
             </h2>
             <p className="text-gray-600">Please log in to view your orders.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <div className="text-red-500 mb-4">
+              <Activity className="h-12 w-12 mx-auto" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Error Loading Orders</h2>
+            <p className="text-gray-600 mb-4">{error.message}</p>
+            <Button onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -65,13 +118,13 @@ const OrderPage = observer(() => {
 
           <div className="flex items-center space-x-3">
             <Button
-              onClick={() => orderPageModel.refresh()}
-              disabled={orderPageModel.isRefreshing}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50"
             >
               <RefreshCw
-                className={`h-4 w-4 mr-2 ${orderPageModel.isRefreshing ? "animate-spin" : ""}`}
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
               />
               <span>Refresh</span>
             </Button>
@@ -86,19 +139,12 @@ const OrderPage = observer(() => {
         {/* Mode Selector */}
         <div className="flex items-center space-x-4">
           <span className="text-sm text-gray-500">Show:</span>
-          <ShadSelect 
-            value={orderPageModel.filters.mode} 
-            onValueChange={(value) => orderPageModel.setMode(value)}
-          >
-            <ShadSelectTrigger className="w-40 border-gray-300">
-              <ShadSelectValue />
-            </ShadSelectTrigger>
-            <ShadSelectContent>
-              {MODES.map((m) => (
-                <ShadSelectItem key={m.value} value={m.value}>{m.label}</ShadSelectItem>
-              ))}
-            </ShadSelectContent>
-          </ShadSelect>
+          <select className="px-3 py-2 border border-gray-300 rounded-md text-sm">
+            <option value="all">All Orders</option>
+            <option value="open">Open Orders</option>
+            <option value="completed">Completed Orders</option>
+            <option value="cancelled">Cancelled Orders</option>
+          </select>
         </div>
 
         {/* Summary Cards */}
@@ -112,7 +158,7 @@ const OrderPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-gray-900">
-                {orderPageModel.summaryStats.total_orders}
+                {summaryStats.total_orders}
               </div>
               <p className="text-xs text-gray-500">All time orders</p>
             </CardContent>
@@ -127,7 +173,7 @@ const OrderPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-green-600">
-                {orderPageModel.summaryStats.completed_orders}
+                {summaryStats.completed_orders}
               </div>
               <p className="text-xs text-gray-500">Successfully executed</p>
             </CardContent>
@@ -142,7 +188,7 @@ const OrderPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-orange-600">
-                {orderPageModel.summaryStats.open_orders}
+                {summaryStats.open_orders}
               </div>
               <p className="text-xs text-gray-500">Pending execution</p>
             </CardContent>
@@ -157,7 +203,7 @@ const OrderPage = observer(() => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-light text-gray-900">
-                ₹{orderPageModel.summaryStats.total_value?.toLocaleString() || '0'}
+                ₹{summaryStats.total_value?.toLocaleString() || "0"}
               </div>
               <p className="text-xs text-gray-500">Order value</p>
             </CardContent>
@@ -168,31 +214,16 @@ const OrderPage = observer(() => {
         <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="p-6">
             <OrderTable
-              orders={orderPageModel.orders}
-              isLoading={orderPageModel.isLoadingOrders && (!orderPageModel.isRefreshing || orderPageModel.isManualRefresh)}
-              error={orderPageModel.ordersError}
-              // Pagination
-              currentPage={orderPageModel.pagination.currentPage}
-              totalPages={orderPageModel.pagination.totalPages}
-              totalItems={orderPageModel.pagination.totalItems}
-              pageSize={orderPageModel.pagination.pageSize}
-              onPageChange={(page) => orderPageModel.setCurrentPage(page)}
-              onPageSizeChange={(pageSize) => orderPageModel.setPageSize(pageSize)}
-              // Search and filters
-              searchQuery={orderPageModel.filters.searchQuery}
-              onSearchChange={(query) => orderPageModel.setSearchQuery(query)}
-              statusFilter={orderPageModel.filters.statusFilter}
-              onStatusFilterChange={(status) => orderPageModel.setStatusFilter(status)}
-              // Actions
-              onRefresh={() => orderPageModel.refresh()}
-              onExport={() => console.log("Export orders")}
-              highlightNewRows={true}
+              orders={ordersData?.data || []}
+              isLoading={isLoading}
+              error={error ? String(error) : null}
+              onRefresh={handleRefresh}
             />
           </CardContent>
         </Card>
       </div>
     </div>
   );
-});
+}
 
 export default OrderPage;
