@@ -7,12 +7,13 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const fullUrl = `${pathname}${search}`;
   const isLoginPage = pathname === "/login";
-  const isProtectedPage = pathname.startsWith("/dashboard") || 
-                          pathname.startsWith("/strategies") || 
-                          pathname.startsWith("/orders") || 
-                          pathname.startsWith("/portfolio") || 
-                          pathname.startsWith("/pnl") || 
-                          pathname.startsWith("/settings");
+  const isProtectedPage =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/strategies") ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/portfolio") ||
+    pathname.startsWith("/pnl") ||
+    pathname.startsWith("/settings");
 
   // Get the token to check if user is authenticated
   const token = await getToken({
@@ -41,7 +42,7 @@ export async function middleware(request: NextRequest) {
         "Middleware: Redirecting authenticated user from login to dashboard"
       );
     }
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3001";
     const redirectUrl = new URL("/dashboard", baseUrl);
     // Add cache busting parameter to avoid browser caching
     redirectUrl.searchParams.set("t", Date.now().toString());
@@ -55,7 +56,7 @@ export async function middleware(request: NextRequest) {
         "Middleware: Redirecting unauthenticated user from protected page to login"
       );
     }
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3001";
     const redirectUrl = new URL("/login", baseUrl);
     // Add cache busting parameter to avoid browser caching
     redirectUrl.searchParams.set("t", Date.now().toString());
@@ -69,12 +70,12 @@ export async function middleware(request: NextRequest) {
 // Run middleware on these paths
 export const config = {
   matcher: [
-    "/login", 
-    "/dashboard/:path*", 
-    "/strategies/:path*", 
-    "/orders/:path*", 
-    "/portfolio/:path*", 
-    "/pnl/:path*", 
-    "/settings/:path*"
+    "/login",
+    "/dashboard/:path*",
+    "/strategies/:path*",
+    "/orders/:path*",
+    "/portfolio/:path*",
+    "/pnl/:path*",
+    "/settings/:path*",
   ],
 };

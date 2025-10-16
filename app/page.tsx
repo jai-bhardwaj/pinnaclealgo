@@ -1,22 +1,24 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function HomePage() {
   const { status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
     if (status === "loading") return; // Still loading
 
     if (status === "authenticated") {
       // Redirect to dashboard if authenticated
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } else {
       // Redirect to login if not authenticated
-      window.location.href = "/login";
+      router.push("/login");
     }
-  }, [status]);
+  }, [status, router]);
 
   // Show loading while checking authentication
   return (
