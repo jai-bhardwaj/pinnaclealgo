@@ -16,9 +16,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
-        if (isDev) {
-          console.log("NextAuth authorize function called");
-        }
+        console.log("🔐 NextAuth authorize function called with:", {
+          username: credentials?.username,
+          hasPassword: !!credentials?.password,
+          isDev,
+        });
 
         if (!credentials?.username || !credentials?.password) {
           if (isDev) {
@@ -28,9 +30,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          if (isDev) {
-            console.log("Attempting to find user in DB...");
-          }
+          console.log(
+            "🔍 Attempting to find user in DB with username:",
+            credentials.username
+          );
           const user = await prisma.user.findFirst({
             where: {
               OR: [
@@ -62,17 +65,12 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          if (isDev) {
-            console.log("User found, attempting to compare passwords...");
-          }
+          console.log("🔑 User found, attempting to compare passwords...");
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.hashedPassword
           );
-
-          if (isDev) {
-            console.log("Password comparison result:", isPasswordValid);
-          }
+          console.log("🔑 Password comparison result:", isPasswordValid);
 
           if (!isPasswordValid) {
             if (isDev) {
