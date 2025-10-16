@@ -89,6 +89,15 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
+  events: {
+    async signOut() {
+      // Clear backend token on logout
+      if (typeof window !== "undefined") {
+        const { backendAuth } = await import("@/services/backendAuth");
+        backendAuth.clearToken();
+      }
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
   debug: isDev,
 };

@@ -3,6 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tradingApi } from "@/services/tradingApi";
+import { mockTradingApi } from "@/services/mockTradingApi";
 import type { OrderRequest, UpdateUserStrategyConfigRequest } from "@/types";
 
 // === QUERY HOOKS ===
@@ -18,7 +19,17 @@ export function useHealth() {
 export function useStrategies() {
   return useQuery({
     queryKey: ["strategies"],
-    queryFn: () => tradingApi.getStrategies(),
+    queryFn: async () => {
+      try {
+        return await tradingApi.getStrategies();
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Backend API failed, using mock data:", error);
+          return await mockTradingApi.getStrategies();
+        }
+        throw error;
+      }
+    },
   });
 }
 
@@ -40,7 +51,17 @@ export function useMarketplace() {
 export function usePositions(userId: string) {
   return useQuery({
     queryKey: ["positions", userId],
-    queryFn: () => tradingApi.getPositions(userId),
+    queryFn: async () => {
+      try {
+        return await tradingApi.getPositions(userId);
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Backend API failed, using mock data:", error);
+          return await mockTradingApi.getPositions(userId);
+        }
+        throw error;
+      }
+    },
     enabled: !!userId,
   });
 }
@@ -66,7 +87,17 @@ export function useOrders(
 ) {
   return useQuery({
     queryKey: ["orders", userId, params],
-    queryFn: () => tradingApi.getUserOrders(userId, params),
+    queryFn: async () => {
+      try {
+        return await tradingApi.getUserOrders(userId, params);
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Backend API failed, using mock data:", error);
+          return await mockTradingApi.getOrders(userId, params);
+        }
+        throw error;
+      }
+    },
     enabled: !!userId,
   });
 }
@@ -122,7 +153,17 @@ export function useUserConfig(userId: string, strategyId: string) {
 export function useDashboard(userId: string) {
   return useQuery({
     queryKey: ["dashboard", userId],
-    queryFn: () => tradingApi.getDashboard(userId),
+    queryFn: async () => {
+      try {
+        return await tradingApi.getDashboard(userId);
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Backend API failed, using mock data:", error);
+          return await mockTradingApi.getDashboardData(userId);
+        }
+        throw error;
+      }
+    },
     enabled: !!userId,
     refetchInterval: 5000, // Refresh every 5 seconds
   });

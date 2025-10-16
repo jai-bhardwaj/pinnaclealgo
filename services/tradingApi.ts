@@ -16,6 +16,7 @@ import type {
   UpdateUserStrategyConfigRequest,
   DashboardData,
 } from "@/types";
+import { backendAuth } from "./backendAuth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -27,6 +28,7 @@ class TradingApiService {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         "Content-Type": "application/json",
+        ...backendAuth.getAuthHeader(),
         ...options?.headers,
       },
       ...options,

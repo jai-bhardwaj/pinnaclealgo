@@ -1,34 +1,52 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import toast, { Toaster } from 'react-hot-toast';
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import toast, { Toaster } from "react-hot-toast";
+import { backendAuth } from "@/services/backendAuth";
 
 export default function LoginPage() {
-  const [emailOrUsername, setEmailOrUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [password, setPassword] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const signInResponse = await signIn('credentials', {
-      username: emailOrUsername, // Use 'username' to match the NextAuth provider config
-      password,
-      redirect: false, // Prevent automatic redirect
-    });
+    try {
+      // Login to frontend (NextAuth)
+      const signInResponse = await signIn("credentials", {
+        username: emailOrUsername,
+        password,
+        redirect: false,
+      });
 
-    // Only log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('NextAuth signIn response:', signInResponse);
-    }
+      if (signInResponse?.error) {
+        toast.error(signInResponse.error || "Login failed");
+        return;
+      }
 
-    if (signInResponse?.error) {
-      toast.error(signInResponse.error || 'Login failed');
-    } else {
-      toast.success('Login successful!');
-      router.push('/dashboard');
+      // Try to login to backend API
+      try {
+        await backendAuth.login(emailOrUsername, password);
+        toast.success("Login successful! Connected to trading backend.");
+        router.push("/dashboard");
+      } catch (backendError) {
+        console.warn("Backend login failed:", backendError);
+        if (process.env.NODE_ENV === "development") {
+          toast.success(
+            "Login successful! (Using demo data - backend user not found)"
+          );
+        } else {
+          toast.error("Backend authentication failed. Please contact support.");
+          return;
+        }
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("Login failed");
     }
   };
 
@@ -37,14 +55,19 @@ export default function LoginPage() {
       <Toaster position="top-right" />
       <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Sign in to your account</h2>
+          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+            Sign in to your account
+          </h2>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="emailOrUsername" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="emailOrUsername"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Email or Username
                 </label>
                 <div className="mt-1">
@@ -62,7 +85,10 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Password
                 </label>
                 <div className="mt-1">
@@ -93,4 +119,4 @@ export default function LoginPage() {
       </div>
     </>
   );
-} 
+}
