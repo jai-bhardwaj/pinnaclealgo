@@ -3,7 +3,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tradingApi } from "@/services/tradingApi";
-import { mockTradingApi } from "@/services/mockTradingApi";
 import type { OrderRequest, UpdateUserStrategyConfigRequest } from "@/types";
 
 // === QUERY HOOKS ===
@@ -19,14 +18,7 @@ export function useHealth() {
 export function useStrategies() {
   return useQuery({
     queryKey: ["strategies"],
-    queryFn: async () => {
-      try {
-        return await tradingApi.getStrategies();
-      } catch (error) {
-        console.warn("Real API failed, using mock data:", error);
-        return await mockTradingApi.getStrategies();
-      }
-    },
+    queryFn: () => tradingApi.getStrategies(),
   });
 }
 
@@ -48,14 +40,7 @@ export function useMarketplace() {
 export function usePositions(userId: string) {
   return useQuery({
     queryKey: ["positions", userId],
-    queryFn: async () => {
-      try {
-        return await tradingApi.getPositions(userId);
-      } catch (error) {
-        console.warn("Real API failed, using mock data:", error);
-        return await mockTradingApi.getPositions(userId);
-      }
-    },
+    queryFn: () => tradingApi.getPositions(userId),
     enabled: !!userId,
   });
 }
@@ -81,14 +66,7 @@ export function useOrders(
 ) {
   return useQuery({
     queryKey: ["orders", userId, params],
-    queryFn: async () => {
-      try {
-        return await tradingApi.getUserOrders(userId, params);
-      } catch (error) {
-        console.warn("Real API failed, using mock data:", error);
-        return await mockTradingApi.getOrders(userId, params);
-      }
-    },
+    queryFn: () => tradingApi.getUserOrders(userId, params),
     enabled: !!userId,
   });
 }
@@ -104,14 +82,7 @@ export function useOrdersSummary(
 ) {
   return useQuery({
     queryKey: ["ordersSummary", userId, params],
-    queryFn: async () => {
-      try {
-        return await tradingApi.getOrdersSummary(userId, params);
-      } catch (error) {
-        console.warn("Real API failed, using mock data:", error);
-        return await mockTradingApi.getOrdersSummary(userId);
-      }
-    },
+    queryFn: () => tradingApi.getOrdersSummary(userId, params),
     enabled: !!userId,
   });
 }
@@ -151,14 +122,7 @@ export function useUserConfig(userId: string, strategyId: string) {
 export function useDashboard(userId: string) {
   return useQuery({
     queryKey: ["dashboard", userId],
-    queryFn: async () => {
-      try {
-        return await tradingApi.getDashboard(userId);
-      } catch (error) {
-        console.warn("Real API failed, using mock data:", error);
-        return await mockTradingApi.getDashboardData(userId);
-      }
-    },
+    queryFn: () => tradingApi.getDashboard(userId),
     enabled: !!userId,
     refetchInterval: 5000, // Refresh every 5 seconds
   });
